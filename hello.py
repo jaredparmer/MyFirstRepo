@@ -1,1 +1,1 @@
-print("Hello you very smart fuck!")
+print("Hello you dumb fuck!")
