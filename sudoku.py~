@@ -183,6 +183,12 @@ def puzzle_is_complete(puzzle):
 
 def main():
     puzzle = init_puzzle()
+    print_puzzle(puzzle)
+    if puzzle_is_complete(puzzle):
+        print("Puzzle is complete!")
+    else:
+        print("nope!")
+
     puzzle = make_puzzle()
     print_puzzle(puzzle)
     if puzzle_is_complete(puzzle):
@@ -190,11 +196,12 @@ def main():
     else:
         print("nope!")
 
+"""
     if(solve_puzzle(puzzle)):
-        print("this puzzle is valid!")
+        print_puzzle()
     else:
         print("No solution exists!")
-
+"""
 """ commenting out drawings while debugging
     pen = turtle.Turtle()
     box_size = 30
