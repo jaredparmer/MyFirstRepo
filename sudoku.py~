@@ -5,7 +5,7 @@ import random
 
 # initializes puzzle with all 0s
 def init_puzzle():
-    puzzle = [[0, 0, 0, 0, 0, 0, 0, 0, 0],
+    puzzle = [
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -13,9 +13,21 @@ def init_puzzle():
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0]]
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            ]
     return puzzle
 
+""" blank
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            ]
+"""
 # generates randomly filled puzzle, only checks for row validity
 def make_puzzle():
     puzzle = []
@@ -154,63 +166,62 @@ def used_in_box(puzzle, row, col, candidate):
     return False
 
 def solve_puzzle(puzzle):
+    # base case: puzzle is completely filled out
     if puzzle_is_complete(puzzle):
+        print("puzzle is complete!")
         return True
 
+    # recursion case
     # traverse entire puzzle, by row and column
     for row in range(9):
         for col in range(9):
             # verify present cell is empty
+    #        print(f"checking cell ({row}, {col})...")
             if puzzle[row][col] == 0:
+    #            print("cell is empty...")
                 for candidate in range(1, 10):
+    #                print(f"trying {candidate} in ({row}, {col})...")
                     if (not used_in_row(puzzle, row, candidate) and
                         not used_in_col(puzzle, col, candidate) and
                         not used_in_box(puzzle, row, col, candidate)):
                         # if all met, candidate looks good; tentatively assign
+    #                    print(f"{candidate} looks promising...")
                         puzzle[row][col] = candidate
                         if solve_puzzle(puzzle):
                             return True
                         # otherwise, candidate is bad; unassign and try again
+    #                    print(f"no dice! removing {candidate} from "
+    #                          f"{row}, {col}...")
                         puzzle[row][col] = 0
-
+                return False                                            
     return False
 
 def puzzle_is_complete(puzzle):
-    for row, col in zip(range(9), range(9)):
-        if puzzle[row][col] == 0:
-            return False
+    for row in range(9):
+        for col in range(9):
+            if puzzle[row][col] == 0:
+                return False
     return True
 
 def main():
     puzzle = init_puzzle()
-    print_puzzle(puzzle)
-    if puzzle_is_complete(puzzle):
-        print("Puzzle is complete!")
-    else:
-        print("nope!")
 
-    puzzle = make_puzzle()
-    print_puzzle(puzzle)
-    if puzzle_is_complete(puzzle):
-        print("Puzzle is complete!")
-    else:
-        print("nope!")
+#    if solve_puzzle(puzzle):
+#        print_puzzle(puzzle)
+#        print("this puzzle is valid!")
+#    else:
+#        print("No solution exists!")
 
-"""
-    if(solve_puzzle(puzzle)):
-        print_puzzle()
+    if solve_puzzle(puzzle):
+        pen = turtle.Turtle()
+        box_size = 30
+        pen.speed(0)
+        draw_board(pen, box_size)
+        fill_board(pen, puzzle, box_size)
+        pen.hideturtle()
+        turtle.mainloop() 
     else:
-        print("No solution exists!")
-"""
-""" commenting out drawings while debugging
-    pen = turtle.Turtle()
-    box_size = 30
-    pen.speed(0)
-    draw_board(pen, box_size)
-    fill_board(pen, puzzle, box_size)
-    pen.hideturtle()
-    turtle.mainloop() 
-    """
+        print("no solution exists!")
 
 if __name__ == '__main__':
     main()
