@@ -3,45 +3,6 @@
 import turtle
 import random
 
-# initializes puzzle with all 0s
-def init_puzzle():
-    puzzle = [
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            ]
-    return puzzle
-
-""" blank
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            ]
-"""
-# generates randomly filled puzzle, only checks for row validity
-def make_puzzle():
-    puzzle = []
-    for i in range(0, 9):
-        row = []
-        while len(row) != 9:
-            candidate = random.randint(1,9)
-            if candidate not in row:
-                row.append(candidate)
-        puzzle.append(row)
-    return puzzle
-
 # postcondition: turtle t at origin, facing east, pen is up
 def draw_board(t, box_size):
     # initialize pen and draw first set of boxes
@@ -82,18 +43,6 @@ def draw_box(t, size):
        t.fd(size)
        t.lt(90)
 
-# prints puzzle in makeshift board in console, faster for debugging
-def print_puzzle(puzzle):
-    for i in range(len(puzzle)):
-        if i % 3 == 0:
-            print('-------------------------')
-        for j in range(len(puzzle[i])):
-            if j % 3 == 0:
-                print('|', end= ' ')
-            print(puzzle[i][j], end=' ')
-        print('|')
-    print('-------------------------')
-
 # postcondition: all non-zero values filled into board, pen is up
 def fill_board(t, puzzle, box_size):
     # initialize pen
@@ -119,6 +68,42 @@ def fill_board(t, puzzle, box_size):
         t.pd()
     t.pu()
 
+# precondition: x and y be w/n range of grid, puzzle have corresponding value
+# postcondition: cell (x, y) is filled with puzzle[x][y], pen is up
+def fill_cell(t, x, y, puzzle, box_size):
+    pen_to_cell(t, x, y, box_size)
+    if puzzle[x][y] != 0:
+        t.write(str(puzzle[x][y]), move=False, align="center",
+                font=("Arial", 12, "normal"))
+    t.pu()
+
+# initializes puzzle with all 0s
+def init_puzzle():
+    puzzle = [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            ]
+    return puzzle
+
+# generates randomly filled puzzle, only checks for row validity
+def make_puzzle():
+    puzzle = []
+    for i in range(0, 9):
+        row = []
+        while len(row) != 9:
+            candidate = random.randint(1,9)
+            if candidate not in row:
+                row.append(candidate)
+        puzzle.append(row)
+    return puzzle
+
 # preconditions: x and y be within the range of the grid's row and columns
 # postcondition: turtle t is pen down in cell (x, y) of grid
 def pen_to_cell(t, x, y, box_size):
@@ -137,35 +122,24 @@ def pen_to_cell(t, x, y, box_size):
     t.lt(90)
     t.pd()
 
-# precondition: x and y be w/n range of grid, puzzle have corresponding value
-# postcondition: cell (x, y) is filled with puzzle[x][y], pen is up
-def fill_cell(t, x, y, puzzle, box_size):
-    pen_to_cell(t, x, y, box_size)
-    if puzzle[x][y] != 0:
-        t.write(str(puzzle[x][y]), move=False, align="center",
-                font=("Arial", 12, "normal"))
-    t.pu()
+# prints puzzle in makeshift board in console, faster for debugging
+def print_puzzle(puzzle):
+    for i in range(len(puzzle)):
+        if i % 3 == 0:
+            print('-------------------------')
+        for j in range(len(puzzle[i])):
+            if j % 3 == 0:
+                print('|', end= ' ')
+            print(puzzle[i][j], end=' ')
+        print('|')
+    print('-------------------------')
 
-def used_in_row(puzzle, row, candidate):
-    for i in range(9):
-        if puzzle[row][i] == candidate:
-            return True
-    return False
-
-def used_in_col(puzzle, col, candidate):
-    for i in range(9):
-        if puzzle[i][col] == candidate:
-            return True
-    return False
-
-def used_in_box(puzzle, row, col, candidate):
-    box_r = row - (row % 3)
-    box_c = col - (col % 3)
-    for i in range(3):
-        for j in range(3):
-            if puzzle[box_r + i][box_c + j] == candidate:
-                return True
-    return False
+def puzzle_is_complete(puzzle):
+    for row in range(9):
+        for col in range(9):
+            if puzzle[row][col] == 0:
+                return False
+    return True
 
 def solve_puzzle(puzzle):
     # base case: puzzle is completely filled out
@@ -198,12 +172,26 @@ def solve_puzzle(puzzle):
                 return False                                            
     return False
 
-def puzzle_is_complete(puzzle):
-    for row in range(9):
-        for col in range(9):
-            if puzzle[row][col] == 0:
-                return False
-    return True
+def used_in_row(puzzle, row, candidate):
+    for i in range(9):
+        if puzzle[row][i] == candidate:
+            return True
+    return False
+
+def used_in_col(puzzle, col, candidate):
+    for i in range(9):
+        if puzzle[i][col] == candidate:
+            return True
+    return False
+
+def used_in_box(puzzle, row, col, candidate):
+    box_r = row - (row % 3)
+    box_c = col - (col % 3)
+    for i in range(3):
+        for j in range(3):
+            if puzzle[box_r + i][box_c + j] == candidate:
+                return True
+    return False
 
 def main():
     puzzle = init_puzzle()
