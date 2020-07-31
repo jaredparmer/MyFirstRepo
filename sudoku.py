@@ -3,6 +3,27 @@
 import turtle
 import random
 
+""" to-dos:
+        - fill cells while solving?
+            - gray candidates, black finals?
+        - randomize solve patterns                      IN PROGRESS 31/07
+        - optimize solve function                       IN PROGRESS 31/07
+        - enhance solve fn to count solutions
+        - pickle puzzles
+        - removal algorithm - basic
+        - removal algorithm - multiple difficulties
+        - implement GUI
+            - fill cells
+            - call for solvability
+            - call for final check
+            - get hint/freebie
+            - candidate marks
+                - corner notation
+                - center notation
+            - highligher
+            - highlight selected number (every 8, e.g.)
+"""
+
 # postcondition: turtle t at origin, facing east, pen is up
 def draw_board(t, box_size):
     # initialize pen and draw first set of boxes
@@ -47,7 +68,7 @@ def draw_box(t, size):
 def fill_board(t, puzzle, box_size):
     # initialize pen
     t.pu()
-    t.goto(box_size * -4.5 + box_size * (1/2), 
+    t.goto(box_size * -4.5 + box_size * (1/2),
             box_size * 3.5 + box_size * (1/4))
     t.pd()
 
@@ -56,7 +77,7 @@ def fill_board(t, puzzle, box_size):
         for j in range(len(puzzle[i])):
             if puzzle[i][j] != 0:
                 t.write(str(puzzle[i][j]), move=False, align="center", 
-                        font=("Arial", 12, "normal"))
+                        font=("Arial", int(box_size / 2.5), "normal"))
             t.pu()
             t.fd(box_size)
             t.pd()
@@ -77,7 +98,6 @@ def fill_cell(t, x, y, puzzle, box_size):
                 font=("Arial", 12, "normal"))
     t.pu()
 
-# initializes puzzle with all 0s
 def init_puzzle():
     puzzle = [
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -90,6 +110,19 @@ def init_puzzle():
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 0],
             ]
+
+    # insert random values in non-overlapping cells
+    sample = random.sample(range(1, 10), 9)    
+    puzzle[0][0] = sample.pop()
+    puzzle[3][1] = sample.pop()
+    puzzle[6][2] = sample.pop()
+    puzzle[1][3] = sample.pop()
+    puzzle[4][4] = sample.pop()
+    puzzle[7][5] = sample.pop()
+    puzzle[2][6] = sample.pop()
+    puzzle[5][7] = sample.pop()
+    puzzle[8][8] = sample.pop()
+ 
     return puzzle
 
 # generates randomly filled puzzle, only checks for row validity
@@ -195,23 +228,24 @@ def used_in_box(puzzle, row, col, candidate):
 
 def main():
     puzzle = init_puzzle()
-
-#    if solve_puzzle(puzzle):
-#        print_puzzle(puzzle)
-#        print("this puzzle is valid!")
-#    else:
-#        print("No solution exists!")
+    print_puzzle(puzzle)
 
     if solve_puzzle(puzzle):
-        pen = turtle.Turtle()
-        box_size = 30
-        pen.speed(0)
-        draw_board(pen, box_size)
-        fill_board(pen, puzzle, box_size)
-        pen.hideturtle()
-        turtle.mainloop() 
+        print_puzzle(puzzle)
+        print("this puzzle is valid!")
     else:
-        print("no solution exists!")
+        print("No solution exists!")
+
+#    if solve_puzzle(puzzle):
+#        pen = turtle.Turtle()
+#        box_size = 50
+#        pen.speed(0)
+#        draw_board(pen, box_size)
+#        fill_board(pen, puzzle, box_size)
+#        pen.hideturtle()
+#        turtle.mainloop() 
+#    else:
+#        print("no solution exists!")
 
 if __name__ == '__main__':
     main()
