@@ -2,8 +2,10 @@
 
 import turtle
 import random
+import math
 
 """ to-dos:
+        - rebuild fundamental data structure            IN PROGRESS 04/08
         - fill cells while solving?
             - gray candidates, black finals?
         - randomize solve patterns                      IN PROGRESS 31/07
@@ -64,6 +66,8 @@ def draw_box(t, size):
        t.fd(size)
        t.lt(90)
 
+""" REQUIRES UPDATE TO REFLECT NEW DS
+"""
 # postcondition: all non-zero values filled into board, pen is up
 def fill_board(t, puzzle, box_size):
     # initialize pen
@@ -89,6 +93,8 @@ def fill_board(t, puzzle, box_size):
         t.pd()
     t.pu()
 
+""" REQUIRES UPDATE TO REFLECT NEW DS
+"""
 # precondition: x and y be w/n range of grid, puzzle have corresponding value
 # postcondition: cell (x, y) is filled with puzzle[x][y], pen is up
 def fill_cell(t, x, y, puzzle, box_size):
@@ -98,43 +104,33 @@ def fill_cell(t, x, y, puzzle, box_size):
                 font=("Arial", 12, "normal"))
     t.pu()
 
-def init_puzzle():
-    puzzle = [
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            ]
-
-    # insert random values in non-overlapping cells
-    sample = random.sample(range(1, 10), 9)    
-    puzzle[0][0] = sample.pop()
-    puzzle[3][1] = sample.pop()
-    puzzle[6][2] = sample.pop()
-    puzzle[1][3] = sample.pop()
-    puzzle[4][4] = sample.pop()
-    puzzle[7][5] = sample.pop()
-    puzzle[2][6] = sample.pop()
-    puzzle[5][7] = sample.pop()
-    puzzle[8][8] = sample.pop()
- 
+""" This function initializes a blank puzzle. A puzzle is a list of 81 lists,
+where each inner list represents the candidate values for a particular cell.
+The row and column for each cell is implicit in the data structure as follows:
+    row1col1, row1col2, ..., row1col9,
+    row2col1, row2col2, ..., row2col9,
+    .
+    .
+    .
+    row9col1, row9col2, ..., row9col9
+When the list of candidate values for a particular cell is exactly 1, that
+cell has a determinate value. When the list of candidate values is empty,
+there is no valid value for that cell and the puzzle is thus unsolvable.
+"""
+def init_puzzle(size):
+    puzzle = []
+    for i in range(size**2):
+        candidates = []
+        for j in range(1, size + 1):
+            candidates.append(j)
+        puzzle.append(candidates)
     return puzzle
 
-# generates randomly filled puzzle, only checks for row validity
-def make_puzzle():
-    puzzle = []
-    for i in range(0, 9):
-        row = []
-        while len(row) != 9:
-            candidate = random.randint(1,9)
-            if candidate not in row:
-                row.append(candidate)
-        puzzle.append(row)
+# generates randomly filled puzzle
+def make_puzzle(puzzle, size):
+    for i in range(len(puzzle)):
+        puzzle[i] = []
+        puzzle[i].append(random.randint(1, size))
     return puzzle
 
 # preconditions: x and y be within the range of the grid's row and columns
@@ -157,23 +153,41 @@ def pen_to_cell(t, x, y, box_size):
 
 # prints puzzle in makeshift board in console, faster for debugging
 def print_puzzle(puzzle):
+    size = math.sqrt(len(puzzle))
+    box_size = math.sqrt(size)
     for i in range(len(puzzle)):
-        if i % 3 == 0:
+        row = i // size
+        col = i % size
+        if row % box_size == 0 and col == 0:
+            # starting a new row; print horizontal bar
             print('-------------------------')
-        for j in range(len(puzzle[i])):
-            if j % 3 == 0:
-                print('|', end= ' ')
-            print(puzzle[i][j], end=' ')
-        print('|')
+        if col % box_size == 0:
+            # entered a new box; print vertical bar
+            print('|', end= ' ')
+
+        if len(puzzle[i]) > 1:
+            # cell has multiple candidates
+            print("0", end=' ')
+        elif len(puzzle[i]) == 1:
+            # cell has a determinate value
+            print(puzzle[i][0], end=' ')
+        else:
+            # cell has no candidates, puzzle is unsolvable
+            print("!", end=' ')
+
+        if col == size - 1:
+            # hit right edge of puzzle; move to next line
+            print('|')
     print('-------------------------')
 
 def puzzle_is_complete(puzzle):
-    for row in range(9):
-        for col in range(9):
-            if puzzle[row][col] == 0:
-                return False
+    for i in range(len(puzzle)):
+        if len(puzzle[i]) > 1:
+            return False
     return True
 
+""" REQUIRES UPDATE TO REFLECT NEW DS
+"""
 def solve_puzzle(puzzle):
     # base case: puzzle is completely filled out
     if puzzle_is_complete(puzzle):
@@ -205,18 +219,24 @@ def solve_puzzle(puzzle):
                 return False                                            
     return False
 
-def used_in_row(puzzle, row, candidate):
-    for i in range(9):
-        if puzzle[row][i] == candidate:
+""" REQUIRES UPDATE TO REFLECT NEW DS
+"""
+def used_in_row(puzzle, size, candidate):
+    for i in range(0, size**2, size):
+        if len(puzzle[i]) == 1 and puzzle[i][0] == candidate:
             return True
     return False
 
+""" REQUIRES UPDATE TO REFLECT NEW DS
+"""
 def used_in_col(puzzle, col, candidate):
     for i in range(9):
         if puzzle[i][col] == candidate:
             return True
     return False
 
+""" REQUIRES UPDATE TO REFLECT NEW DS
+"""
 def used_in_box(puzzle, row, col, candidate):
     box_r = row - (row % 3)
     box_c = col - (col % 3)
@@ -227,14 +247,16 @@ def used_in_box(puzzle, row, col, candidate):
     return False
 
 def main():
-    puzzle = init_puzzle()
+    puzzle = init_puzzle(9)
+    print_puzzle(puzzle)
+    puzzle = make_puzzle(puzzle, 9)
     print_puzzle(puzzle)
 
-    if solve_puzzle(puzzle):
-        print_puzzle(puzzle)
-        print("this puzzle is valid!")
-    else:
-        print("No solution exists!")
+#    if solve_puzzle(puzzle):
+#        print_puzzle(puzzle)
+#        print("this puzzle is valid!")
+#    else:
+#        print("No solution exists!")
 
 #    if solve_puzzle(puzzle):
 #        pen = turtle.Turtle()
