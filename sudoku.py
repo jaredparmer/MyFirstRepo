@@ -12,7 +12,6 @@ import math
             - rewrite make_puzzle to partially fill
         - optimize solve function                       IN PROGRESS 31/07
         - enhance solve fn to count solutions
-        - custom puzzle class with overloaded slice op?
         - pickle puzzles
         - removal algorithm - basic
         - removal algorithm - multiple difficulties
@@ -108,16 +107,24 @@ def fill_board(t, puzzle, box_size):
             t.pd()
     t.pu()
 
-""" REQUIRES UPDATE TO REFLECT NEW DS
-"""
 # TO DO: generalize for puzzles not 9x9 in size
-# precondition: x and y be w/n range of grid, puzzle have corresponding value
-# postcondition: cell (x, y) is filled with puzzle[x][y], pen is up
+# precondition: x and y be w/n range of grid
+# postcondition: cell (x, y) is filled with determinate value or error is
+# marked, and pen is up
 def fill_cell(t, x, y, puzzle, box_size):
     pen_to_cell(t, x, y, box_size)
-    if puzzle[x][y] != 0:
-        t.write(str(puzzle[x][y]), move=False, align="center",
-                font=("Arial", 12, "normal"))
+    i = int(math.sqrt(len(puzzle))) * x + y
+    if len(puzzle[i]) == 1:
+        # cell has determinate value; print it
+        t.write(str(puzzle[i][0]), move=False, align="center", 
+                font=("Arial", int(box_size / 2.5), "normal"))
+    elif len(puzzle[i]) == 0:
+        # cell has no candidates; puzzle is unsolvable; print error
+        t.pencolor('red')
+        t.write('!', move=False, align="center", 
+                font=("Arial", int(box_size / 2.5), "normal"))
+        t.pencolor('black')
+    # otherwise, cell has multiple candidates; print nothing
     t.pu()
 
 """ This function initializes a blank puzzle. A puzzle is a list of 81 lists,
@@ -150,6 +157,7 @@ def make_puzzle(puzzle):
         puzzle[i] = []
         puzzle[i].append(random.randint(1, size))
 
+# TO DO: generalize for puzzles not 9x9 in size
 # preconditions: x and y be within the range of the grid's row and columns
 # postcondition: turtle t is pen down in cell (x, y) of grid
 def pen_to_cell(t, x, y, box_size):
@@ -247,28 +255,31 @@ def solve_puzzle(puzzle):
         return True
 
     # recursion case
-    # traverse entire puzzle, by row and column
-    for row in range(9):
-        for col in range(9):
-            # verify present cell is empty
-    #        print(f"checking cell ({row}, {col})...")
-            if puzzle[row][col] == 0:
-    #            print("cell is empty...")
-                for candidate in range(1, 10):
-    #                print(f"trying {candidate} in ({row}, {col})...")
-                    if (not used_in_row(puzzle, row, candidate) and
-                        not used_in_col(puzzle, col, candidate) and
-                        not used_in_box(puzzle, row, col, candidate)):
-                        # if all met, candidate looks good; tentatively assign
-    #                    print(f"{candidate} looks promising...")
-                        puzzle[row][col] = candidate
-                        if solve_puzzle(puzzle):
-                            return True
-                        # otherwise, candidate is bad; unassign and try again
-    #                    print(f"no dice! removing {candidate} from "
-    #                          f"{row}, {col}...")
-                        puzzle[row][col] = 0
-                return False                                            
+    # traverse entire puzzle
+    size = len(puzzle)
+    for i in range(size):
+        if len(puzzle[i]) == 1:
+            # cell has a solution; move on
+            continue
+        if len(puzzle[i]) == 0:
+            # cell has no possible solutions; puzzle unsolvable
+            return False
+        if len(puzzle[i]) > 1:
+            # cell has more than one candidate
+            row = i // size
+            col = i % size
+            for candidate in puzzle[i]:
+                if (not used_in_row(puzzle, row, candidate) and
+                    not used_in_col(puzzle, col, candidate) and
+                    not used_in_box(puzzle, row, col, candidate)):
+                    # candidate looks good; tentatively assign
+                    backup = puzzle.copy()
+                    puzzle[i] = [candidate]
+                    if solve_puzzle(puzzle):
+                        return True
+                    # otherwise, candidate is bad; unassign and try again
+                    puzzle[i] = backup
+            return False                                            
     return False
 
 def used_in_row(puzzle, row, candidate):

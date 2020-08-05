@@ -305,16 +305,16 @@ puzzle = init_puzzle(9)
 make_puzzle(puzzle)
 print_puzzle(puzzle)
 
-puzzle[1] = [8, 9]
-puzzle[2] = []
+#puzzle[1] = [8, 9]
+#puzzle[2] = []
 
-pen = turtle.Turtle()
-box_size = 50
-pen.speed(0)
-draw_board(pen, box_size)
-fill_board(pen, puzzle, box_size)
-pen.hideturtle()
-turtle.mainloop() 
+#pen = turtle.Turtle()
+#box_size = 50
+#pen.speed(0)
+#draw_board(pen, box_size)
+#fill_board(pen, puzzle, box_size)
+#pen.hideturtle()
+#turtle.mainloop() 
 
 
 #    if solve_puzzle(puzzle):
