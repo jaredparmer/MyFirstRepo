@@ -16,6 +16,7 @@ import math
         - pickle puzzles
         - removal algorithm - basic
         - removal algorithm - multiple difficulties
+        - generalize turtle fns for puzzles not 9x9
         - implement GUI
             - fill cells
             - call for solvability
@@ -28,6 +29,7 @@ import math
             - highlight selected number (every 8, e.g.)
 """
 
+# TO DO: generalize for puzzles not 9x9 in size
 # postcondition: turtle t at origin, facing east, pen is up
 def draw_board(t, box_size):
     # initialize pen and draw first set of boxes
@@ -68,11 +70,12 @@ def draw_box(t, size):
        t.fd(size)
        t.lt(90)
 
-""" REQUIRES UPDATE TO REFLECT NEW DS
-"""
+# TO DO: generalize for puzzles not 9x9 in size
 # postcondition: all non-zero values filled into board, pen is up
 def fill_board(t, puzzle, box_size):
-    # initialize pen
+    size = int(math.sqrt(len(puzzle)))
+
+    # initialize pen for cell (0, 0)
     t.pu()
     t.goto(box_size * -4.5 + box_size * (1/2),
             box_size * 3.5 + box_size * (1/4))
@@ -80,23 +83,34 @@ def fill_board(t, puzzle, box_size):
 
     # fill boxes with elements from puzzle
     for i in range(len(puzzle)):
-        for j in range(len(puzzle[i])):
-            if puzzle[i][j] != 0:
-                t.write(str(puzzle[i][j]), move=False, align="center", 
-                        font=("Arial", int(box_size / 2.5), "normal"))
-            t.pu()
-            t.fd(box_size)
-            t.pd()
+        if len(puzzle[i]) == 1:
+            # cell has determinate value; print it
+            t.write(str(puzzle[i][0]), move=False, align="center", 
+                    font=("Arial", int(box_size / 2.5), "normal"))
+        elif len(puzzle[i]) == 0:
+            i# cell has no candidates; puzzle is unsolvable; print error
+            t.pencolor('red')
+            t.write('!', move=False, align="center", 
+                    font=("Arial", int(box_size / 2.5), "normal"))
+            t.pencolor('black')
+        # otherwise, cell has multiple candidates; print nothing and move
         t.pu()
-        t.bk(box_size * 9)
-        t.rt(90)
         t.fd(box_size)
-        t.lt(90)
         t.pd()
+
+        if (i + 1) % size == 0:
+            # have hit right bound of puzzle; move to new line
+            t.pu()
+            t.bk(box_size * size)
+            t.rt(90)
+            t.fd(box_size)
+            t.lt(90)
+            t.pd()
     t.pu()
 
 """ REQUIRES UPDATE TO REFLECT NEW DS
 """
+# TO DO: generalize for puzzles not 9x9 in size
 # precondition: x and y be w/n range of grid, puzzle have corresponding value
 # postcondition: cell (x, y) is filled with puzzle[x][y], pen is up
 def fill_cell(t, x, y, puzzle, box_size):
@@ -107,7 +121,7 @@ def fill_cell(t, x, y, puzzle, box_size):
     t.pu()
 
 """ This function initializes a blank puzzle. A puzzle is a list of 81 lists,
-where each inner list represents the candidate values for a particular cell.
+where each nested list represents the candidate values for a particular cell.
 The row and column for each cell is implicit in the data structure as follows:
     row1col1, row1col2, ..., row1col9,
     row2col1, row2col2, ..., row2col9,
@@ -115,9 +129,9 @@ The row and column for each cell is implicit in the data structure as follows:
     .
     .
     row9col1, row9col2, ..., row9col9
-When the list of candidate values for a particular cell is exactly 1, that
-cell has a determinate value. When the list of candidate values is empty,
-there is no valid value for that cell and the puzzle is thus unsolvable.
+When the nested list of candidate values for a particular cell is exactly 1,
+that cell has a determinate value. When the nested list of candidate values is
+empty, there is no valid value for that cell and the puzzle is thus unsolvable.
 """
 def init_puzzle(size):
     puzzle = []
@@ -189,6 +203,41 @@ def puzzle_is_complete(puzzle):
             return False
     return True
 
+""" The following functions remove a given candidate from the candidate
+lists of all cells in the given row, column, or box.
+
+IMPORTANT: These fns should be run *before* the candidate is placed in the
+desired cell. They should also be run *after* the used_in_x() fns, as they
+assume the candidate is not an already-found solution to a cell in the row,
+column, or box.
+"""
+def rm_from_row(puzzle, row, candidate):
+    size = int(math.sqrt(len(puzzle)))
+    row_index = row * size
+    for i in range(0, size):
+        j = row_index + i
+        if candidate in puzzle[j]:
+            puzzle[j].remove(candidate)
+
+def rm_from_col(puzzle, col, candidate):
+    size = int(math.sqrt(len(puzzle)))
+    for i in range(0, size**2, size):
+        j = i + col
+        if candidate in puzzle[j]:
+            puzzle[j].remove(candidate)
+
+def rm_from_box(puzzle, row, col, candidate):
+    # row and col values for cell in top-left corner of relevant box
+    box_r = row - (row % 3)
+    box_c = col - (col % 3)
+    # cell in top-left corner of relevant box
+    top_left = box_r * int(math.sqrt(len(puzzle))) + box_c
+    # now traverse all cells in box
+    for i in range(0, 19, 9):
+        for j in range(top_left + i, top_left + i + 3):
+            if candidate in puzzle[j]:
+                puzzle[j].remove(candidate)
+
 """ REQUIRES UPDATE TO REFLECT NEW DS
 """
 def solve_puzzle(puzzle):
@@ -223,7 +272,7 @@ def solve_puzzle(puzzle):
     return False
 
 def used_in_row(puzzle, row, candidate):
-    size = math.sqrt(len(puzzle))
+    size = int(math.sqrt(len(puzzle)))
     row_index = row * size
     for i in range(0, size):
         j = row_index + i
@@ -232,7 +281,7 @@ def used_in_row(puzzle, row, candidate):
     return False
 
 def used_in_col(puzzle, col, candidate):
-    size = math.sqrt(len(puzzle))
+    size = int(math.sqrt(len(puzzle)))
     for i in range(0, size**2, size):
         j = i + col
         if len(puzzle[j]) == 1 and puzzle[j][0] == candidate:
@@ -244,7 +293,7 @@ def used_in_box(puzzle, row, col, candidate):
     box_r = row - (row % 3)
     box_c = col - (col % 3)
     # cell in top-left corner of relevant box
-    top_left = box_r * math.sqrt(len(puzzle)) + box_c
+    top_left = box_r * int(math.sqrt(len(puzzle))) + box_c
     # now traverse all cells in box
     for i in range(0, 19, 9):
         for j in range(top_left + i, top_left + i + 3):
@@ -255,6 +304,18 @@ def used_in_box(puzzle, row, col, candidate):
 puzzle = init_puzzle(9)
 make_puzzle(puzzle)
 print_puzzle(puzzle)
+
+puzzle[1] = [8, 9]
+puzzle[2] = []
+
+pen = turtle.Turtle()
+box_size = 50
+pen.speed(0)
+draw_board(pen, box_size)
+fill_board(pen, puzzle, box_size)
+pen.hideturtle()
+turtle.mainloop() 
+
 
 #    if solve_puzzle(puzzle):
 #        print_puzzle(puzzle)
