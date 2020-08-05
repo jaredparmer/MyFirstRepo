@@ -9,8 +9,10 @@ import math
         - fill cells while solving?
             - gray candidates, black finals?
         - randomize solve patterns                      IN PROGRESS 31/07
+            - rewrite make_puzzle to partially fill
         - optimize solve function                       IN PROGRESS 31/07
         - enhance solve fn to count solutions
+        - custom puzzle class with overloaded slice op?
         - pickle puzzles
         - removal algorithm - basic
         - removal algorithm - multiple difficulties
@@ -127,11 +129,12 @@ def init_puzzle(size):
     return puzzle
 
 # generates randomly filled puzzle
-def make_puzzle(puzzle, size):
+# TO DO: partially fill puzzle as prep for generation via solve fn
+def make_puzzle(puzzle):
+    size = math.sqrt(len(puzzle))
     for i in range(len(puzzle)):
         puzzle[i] = []
         puzzle[i].append(random.randint(1, size))
-    return puzzle
 
 # preconditions: x and y be within the range of the grid's row and columns
 # postcondition: turtle t is pen down in cell (x, y) of grid
@@ -219,38 +222,39 @@ def solve_puzzle(puzzle):
                 return False                                            
     return False
 
-""" REQUIRES UPDATE TO REFLECT NEW DS
-"""
 def used_in_row(puzzle, row, candidate):
-    for i in range(9):
-        if puzzle[row][i] == candidate:
+    size = math.sqrt(len(puzzle))
+    row_index = row * size
+    for i in range(0, size):
+        j = row_index + i
+        if len(puzzle[j]) == 1 and puzzle[j][0] == candidate:
             return True
     return False
 
-""" REQUIRES UPDATE TO REFLECT NEW DS
-"""
 def used_in_col(puzzle, col, candidate):
-    for i in range(9):
-        if puzzle[i][col] == candidate:
+    size = math.sqrt(len(puzzle))
+    for i in range(0, size**2, size):
+        j = i + col
+        if len(puzzle[j]) == 1 and puzzle[j][0] == candidate:
             return True
     return False
 
-""" REQUIRES UPDATE TO REFLECT NEW DS
-"""
 def used_in_box(puzzle, row, col, candidate):
+    # row and col values for cell in top-left corner of relevant box
     box_r = row - (row % 3)
     box_c = col - (col % 3)
-    for i in range(3):
-        for j in range(3):
-            if puzzle[box_r + i][box_c + j] == candidate:
+    # cell in top-left corner of relevant box
+    top_left = box_r * math.sqrt(len(puzzle)) + box_c
+    # now traverse all cells in box
+    for i in range(0, 19, 9):
+        for j in range(top_left + i, top_left + i + 3):
+            if len(puzzle[j]) == 1 and puzzle[j][0] == candidate:
                 return True
     return False
 
-def main():
-    puzzle = init_puzzle(9)
-    print_puzzle(puzzle)
-    puzzle = make_puzzle(puzzle, 9)
-    print_puzzle(puzzle)
+puzzle = init_puzzle(9)
+make_puzzle(puzzle)
+print_puzzle(puzzle)
 
 #    if solve_puzzle(puzzle):
 #        print_puzzle(puzzle)
@@ -268,6 +272,3 @@ def main():
 #        turtle.mainloop() 
 #    else:
 #        print("no solution exists!")
-
-if __name__ == '__main__':
-    main()
