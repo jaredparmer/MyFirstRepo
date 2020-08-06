@@ -84,7 +84,7 @@ def fill_board(t, puzzle, box_size):
     for i in range(len(puzzle)):
         if len(puzzle[i]) == 1:
             # cell has determinate value; print it
-            t.write(str(puzzle[i][0]), move=False, align="center", 
+            t.write(puzzle[i], move=False, align="center", 
                     font=("Arial", int(box_size / 2.5), "normal"))
         elif len(puzzle[i]) == 0:
             i# cell has no candidates; puzzle is unsolvable; print error
@@ -116,7 +116,7 @@ def fill_cell(t, x, y, puzzle, box_size):
     i = int(math.sqrt(len(puzzle))) * x + y
     if len(puzzle[i]) == 1:
         # cell has determinate value; print it
-        t.write(str(puzzle[i][0]), move=False, align="center", 
+        t.write(puzzle[i], move=False, align="center", 
                 font=("Arial", int(box_size / 2.5), "normal"))
     elif len(puzzle[i]) == 0:
         # cell has no candidates; puzzle is unsolvable; print error
@@ -142,10 +142,10 @@ empty, there is no valid value for that cell and the puzzle is thus unsolvable.
 """
 def init_puzzle(size):
     puzzle = []
+    candidates = ''
+    for i in range(1, size + 1):
+        candidates += str(i)
     for i in range(size**2):
-        candidates = []
-        for j in range(1, size + 1):
-            candidates.append(j)
         puzzle.append(candidates)
     return puzzle
 
@@ -154,8 +154,7 @@ def init_puzzle(size):
 def make_puzzle(puzzle):
     size = math.sqrt(len(puzzle))
     for i in range(len(puzzle)):
-        puzzle[i] = []
-        puzzle[i].append(random.randint(1, size))
+        puzzle[i] = str(random.randint(1, size))
 
 # TO DO: generalize for puzzles not 9x9 in size
 # preconditions: x and y be within the range of the grid's row and columns
@@ -225,14 +224,14 @@ def rm_from_row(puzzle, row, candidate):
     for i in range(0, size):
         j = row_index + i
         if candidate in puzzle[j]:
-            puzzle[j].remove(candidate)
+            puzzle[j] = puzzle[j].replace(candidate, '')
 
 def rm_from_col(puzzle, col, candidate):
     size = int(math.sqrt(len(puzzle)))
     for i in range(0, size**2, size):
         j = i + col
         if candidate in puzzle[j]:
-            puzzle[j].remove(candidate)
+            puzzle[j] = puzzle[j].replace(candidate, '')
 
 def rm_from_box(puzzle, row, col, candidate):
     # row and col values for cell in top-left corner of relevant box
@@ -244,7 +243,7 @@ def rm_from_box(puzzle, row, col, candidate):
     for i in range(0, 19, 9):
         for j in range(top_left + i, top_left + i + 3):
             if candidate in puzzle[j]:
-                puzzle[j].remove(candidate)
+                puzzle[j] = puzzle[j].replace(candidate, '')
 
 """ REQUIRES UPDATE TO REFLECT NEW DS
 """
@@ -272,13 +271,22 @@ def solve_puzzle(puzzle):
                 if (not used_in_row(puzzle, row, candidate) and
                     not used_in_col(puzzle, col, candidate) and
                     not used_in_box(puzzle, row, col, candidate)):
-                    # candidate looks good; tentatively assign
-                    backup = puzzle.copy()
-                    puzzle[i] = [candidate]
-                    if solve_puzzle(puzzle):
+                    # candidate looks good; tentatively assign in copy
+                    puzzle_copy = puzzle[:]
+                    puzzle_copy[i] = candidate
+
+                    # remove candidate from candidates of all cells in same
+                    # row, column, or box
+                    rm_from_row(puzzle_copy, row, candidate)
+                    rm_from_col(puzzle_copy, col, candidate)
+                    rm_from_box(puzzle_copy, row, col, candidate)
+
+                    # recurse
+                    if solve_puzzle(puzzle_copy):
+                        # candidate works; make copy main puzzle
+                        puzzle = puzzle_copy
                         return True
-                    # otherwise, candidate is bad; unassign and try again
-                    puzzle[i] = backup
+                    # otherwise, candidate is bad; try the next one
             return False                                            
     return False
 
@@ -287,7 +295,7 @@ def used_in_row(puzzle, row, candidate):
     row_index = row * size
     for i in range(0, size):
         j = row_index + i
-        if len(puzzle[j]) == 1 and puzzle[j][0] == candidate:
+        if puzzle[j] == candidate:
             return True
     return False
 
@@ -295,7 +303,7 @@ def used_in_col(puzzle, col, candidate):
     size = int(math.sqrt(len(puzzle)))
     for i in range(0, size**2, size):
         j = i + col
-        if len(puzzle[j]) == 1 and puzzle[j][0] == candidate:
+        if puzzle[j] == candidate:
             return True
     return False
 
@@ -308,39 +316,26 @@ def used_in_box(puzzle, row, col, candidate):
     # now traverse all cells in box
     for i in range(0, 19, 9):
         for j in range(top_left + i, top_left + i + 3):
-            if len(puzzle[j]) == 1 and puzzle[j][0] == candidate:
+            if puzzle[j] == candidate:
                 return True
     return False
 
 puzzle = init_puzzle(9)
-make_puzzle(puzzle)
+# make_puzzle(puzzle)
 print_puzzle(puzzle)
 
-#puzzle[1] = [8, 9]
-#puzzle[2] = []
+pen = turtle.Turtle()
+box_size = 50
+pen.speed(0)
+draw_board(pen, box_size)
 
-#pen = turtle.Turtle()
-#box_size = 50
-#pen.speed(0)
-#draw_board(pen, box_size)
-#fill_board(pen, puzzle, box_size)
-#pen.hideturtle()
-#turtle.mainloop() 
+if solve_puzzle(puzzle):
+    print_puzzle(puzzle)
+    print("this puzzle is valid!")
+    fill_board(pen, puzzle, box_size)
+else:
+    print("no solution exists!")
 
+pen.hideturtle()
+turtle.mainloop() 
 
-#    if solve_puzzle(puzzle):
-#        print_puzzle(puzzle)
-#        print("this puzzle is valid!")
-#    else:
-#        print("No solution exists!")
-
-#    if solve_puzzle(puzzle):
-#        pen = turtle.Turtle()
-#        box_size = 50
-#        pen.speed(0)
-#        draw_board(pen, box_size)
-#        fill_board(pen, puzzle, box_size)
-#        pen.hideturtle()
-#        turtle.mainloop() 
-#    else:
-#        print("no solution exists!")
