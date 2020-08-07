@@ -247,33 +247,39 @@ def rm_from_box(puzzle, row, col, candidate):
 
 """ REQUIRES UPDATE TO REFLECT NEW DS
 """
+# counts recursions
+count = 0
+# returns solved puzzle object, or None if given puzzle is unsolvable
 def solve_puzzle(puzzle):
+    global count
+
     # base case: puzzle is completely filled out
     if puzzle_is_complete(puzzle):
         print("puzzle is complete!")
-        return True
+        return puzzle
 
     # recursion case
     # traverse entire puzzle
     size = len(puzzle)
     for i in range(size):
+        row = i // int(math.sqrt(size))
+        col = i % int(math.sqrt(size))
         if len(puzzle[i]) == 1:
             # cell has a solution; move on
             continue
         if len(puzzle[i]) == 0:
             # cell has no possible solutions; puzzle unsolvable
-            return False
+            return None
         if len(puzzle[i]) > 1:
             # cell has more than one candidate
-            row = i // size
-            col = i % size
             for candidate in puzzle[i]:
                 if (not used_in_row(puzzle, row, candidate) and
                     not used_in_col(puzzle, col, candidate) and
                     not used_in_box(puzzle, row, col, candidate)):
-                    # candidate looks good; tentatively assign in copy
+
+                    # candidate looks good; make copy for recursion
+                #   print(f"candidate {candidate} looks good, trying...")
                     puzzle_copy = puzzle[:]
-                    puzzle_copy[i] = candidate
 
                     # remove candidate from candidates of all cells in same
                     # row, column, or box
@@ -281,12 +287,19 @@ def solve_puzzle(puzzle):
                     rm_from_col(puzzle_copy, col, candidate)
                     rm_from_box(puzzle_copy, row, col, candidate)
 
-                    # recurse
-                    if solve_puzzle(puzzle_copy):
-                        return True
+                    # assign candidate to cell
+                    puzzle_copy[i] = candidate
+
+                    # recurse on copy
+                    count += 1
+                    puzzle_copy = solve_puzzle(puzzle_copy)
+                    if puzzle_copy:
+                        # candidate works; make copy main puzzle
+                        puzzle = puzzle_copy
+                        return puzzle
                     # otherwise, candidate is bad; try the next one
-            return False                                            
-    return False
+            return None                                            
+    return None
 
 def used_in_row(puzzle, row, candidate):
     size = int(math.sqrt(len(puzzle)))
@@ -320,20 +333,23 @@ def used_in_box(puzzle, row, col, candidate):
 
 puzzle = init_puzzle(9)
 # make_puzzle(puzzle)
-print_puzzle(puzzle)
+# print_puzzle(puzzle)
 
-pen = turtle.Turtle()
-box_size = 50
-pen.speed(0)
-draw_board(pen, box_size)
+#pen = turtle.Turtle()
+#box_size = 50
+#pen.speed(0)
+#draw_board(pen, box_size)
 
-if solve_puzzle(puzzle):
+puzzle = solve_puzzle(puzzle)
+if puzzle:
     print_puzzle(puzzle)
     print("this puzzle is valid!")
-    fill_board(pen, puzzle, box_size)
+#    fill_board(pen, puzzle, box_size)
 else:
     print("no solution exists!")
 
-pen.hideturtle()
-turtle.mainloop() 
+print("Recursions performed: " + str(count))
+
+#pen.hideturtle()
+#turtle.mainloop() 
 
