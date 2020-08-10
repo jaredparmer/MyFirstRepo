@@ -141,12 +141,10 @@ that cell has a determinate value. When the nested list of candidate values is
 empty, there is no valid value for that cell and the puzzle is thus unsolvable.
 """
 def init_puzzle(size):
-    puzzle = []
-    candidates = ''
-    for i in range(1, size + 1):
-        candidates += str(i)
+    puzzle = []         
     for i in range(size**2):
-        puzzle.append(candidates)
+        puzzle.append('123456789')
+        
     return puzzle
 
 # generates randomly filled puzzle
@@ -253,19 +251,21 @@ count = 0
 def solve_puzzle(puzzle):
     global count
 
-    # base case: puzzle is completely filled out
-    if puzzle_is_complete(puzzle):
-        print("puzzle is complete!")
-        return puzzle
-
-    # recursion case
-    # traverse entire puzzle
     size = len(puzzle)
     for i in range(size):
+        if puzzle_is_complete(puzzle):
+            return puzzle
         row = i // int(math.sqrt(size))
         col = i % int(math.sqrt(size))
         if len(puzzle[i]) == 1:
-            # cell has a solution; move on
+            # cell has a solution; cell might have been filled automatically by
+            # elimination, so remove it from all neighbors before moving on
+            candidate = puzzle[i]
+            rm_from_row(puzzle, row, candidate)
+            rm_from_col(puzzle, col, candidate)
+            rm_from_box(puzzle, row, col, candidate)
+            # above fns will remove candidate from puzzle[i]; reassign
+            puzzle[i] = candidate
             continue
         if len(puzzle[i]) == 0:
             # cell has no possible solutions; puzzle unsolvable
@@ -276,9 +276,7 @@ def solve_puzzle(puzzle):
                 if (not used_in_row(puzzle, row, candidate) and
                     not used_in_col(puzzle, col, candidate) and
                     not used_in_box(puzzle, row, col, candidate)):
-
                     # candidate looks good; make copy for recursion
-                #   print(f"candidate {candidate} looks good, trying...")
                     puzzle_copy = puzzle[:]
 
                     # remove candidate from candidates of all cells in same
@@ -335,21 +333,21 @@ puzzle = init_puzzle(9)
 # make_puzzle(puzzle)
 # print_puzzle(puzzle)
 
-#pen = turtle.Turtle()
-#box_size = 50
-#pen.speed(0)
-#draw_board(pen, box_size)
+pen = turtle.Turtle()
+box_size = 50
+pen.speed(0)
+draw_board(pen, box_size)
 
 puzzle = solve_puzzle(puzzle)
 if puzzle:
     print_puzzle(puzzle)
     print("this puzzle is valid!")
-#    fill_board(pen, puzzle, box_size)
+    fill_board(pen, puzzle, box_size)
 else:
     print("no solution exists!")
 
 print("Recursions performed: " + str(count))
 
-#pen.hideturtle()
-#turtle.mainloop() 
+pen.hideturtle()
+turtle.mainloop() 
 
