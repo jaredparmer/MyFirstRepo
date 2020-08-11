@@ -5,11 +5,9 @@ import random
 import math
 
 """ to-dos:
-        - rebuild fundamental data structure            IN PROGRESS 04/08
-        - fill cells while solving?
-            - gray candidates, black finals?
+        - rebuild fundamental data structure            DONE 11/08
         - randomize solve patterns                      IN PROGRESS 31/07
-            - rewrite make_puzzle to partially fill
+            - rewrite make_puzzle to partially fill     DONE 11/08
         - optimize solve function                       IN PROGRESS 31/07
         - enhance solve fn to count solutions
         - pickle puzzles
@@ -147,12 +145,97 @@ def init_puzzle(size):
         
     return puzzle
 
-# generates randomly filled puzzle
-# TO DO: partially fill puzzle as prep for generation via solve fn
+
+""" Inserts value into given cell of given puzzle. Helper function for
+make_puzzle() and solve_puzzle()
+"""
+def insert(value, index, puzzle):
+    size = int(math.sqrt(len(puzzle)))
+    row = index // size
+    col = index % size
+    rm_from_row(puzzle, row, value)
+    rm_from_col(puzzle, col, value)
+    rm_from_box(puzzle, row, col, value)
+    puzzle[index] = value
+
+
+""" This function takes a blank 9x9 puzzle and fills in boxes 1 - 3 and the
+first column. It ensures the placements are valid, and selects candidates
+randomly. It also updates the candidate lists of neighbors along the way.
+
+precondition: given puzzle is 9x9 and has no solved cells
+
+TODO: generalize to any puzzle size
+"""
 def make_puzzle(puzzle):
-    size = math.sqrt(len(puzzle))
-    for i in range(len(puzzle)):
-        puzzle[i] = str(random.randint(1, size))
+    """ size is the length of one dimension of the puzzle (e.g., 9 for a 9x9
+    sudoku), and box_size is the length of one box of the puzzle (e.g., 3 for
+    a 9x9 sudoku).
+    """
+    size = int(math.sqrt(len(puzzle)))
+    box_size = int(math.sqrt(size))
+    
+    # step one: fill box 1
+    # traverse by row and col the cells within the first box
+    top_left_index = 0
+    row_index_delta = size
+    row_beyond_box_index = size * box_size
+    for i in range(top_left_index, row_beyond_box_index, row_index_delta):
+        # create random sequence of candidates for row
+        values = random.sample(list(puzzle[i]), len(puzzle[i]))        
+        for j in range(i, i + box_size):
+            # pull random value and assign to cell
+            candidate = values.pop()
+            insert(candidate, j, puzzle)
+
+    # step two: fill box 2
+    # traverse by row and col the cells within the second box
+    top_left_index += box_size
+    row_beyond_box_index += box_size
+    for i in range(top_left_index, row_beyond_box_index, row_index_delta):
+        # create random sequence of candidates for row
+        values = random.sample(list(puzzle[i]), len(puzzle[i]))
+        for j in range(i, i + box_size):
+            row = j // size
+            if row < box_size - 1:
+                # not on last row, so only pick a value for the cell that
+                # won't make last row unsolvable
+                bottom_right_cell = size * (box_size - 1) + box_size
+                for v in values:
+                    # temporarily remove v from candidates for cell in bottom-
+                    # right corner of the current/second box
+                    brc_wo_v = puzzle[bottom_right_cell].replace(v, '')
+                    if len(brc_wo_v) >= box_size:
+                        # bottom row of box will still be solvable
+                        candidate = v
+                        values.remove(v)
+                        break
+            else:
+                # in last row of box; simply pick value and fill
+                candidate = values.pop()
+
+            insert(candidate, j, puzzle)
+
+    # step three: fill box 3
+    # traverse by row and col the cells within third box
+    top_left_index += box_size
+    row_beyond_box_index += box_size
+    for i in range(top_left_index, row_beyond_box_index, row_index_delta):
+        # create random sequence of candidates for row
+        values = random.sample(list(puzzle[i]), len(puzzle[i]))
+        for j in range(i, i + box_size):
+            candidate = values.pop()
+            insert(candidate, j, puzzle)
+
+    # step four: fill column 1
+    # traverse first col of entire puzzle, starting below first box
+    top_left_index = size * box_size
+    row_beyond_puzzle_index = size**2
+    for i in range(top_left_index, row_beyond_puzzle_index, row_index_delta):
+        values = random.sample(list(puzzle[i]), len(puzzle[i]))
+        candidate = values.pop()
+        insert(candidate, i, puzzle)       
+    
 
 # TO DO: generalize for puzzles not 9x9 in size
 # preconditions: x and y be within the range of the grid's row and columns
@@ -243,11 +326,11 @@ def rm_from_box(puzzle, row, col, candidate):
             if candidate in puzzle[j]:
                 puzzle[j] = puzzle[j].replace(candidate, '')
 
-""" REQUIRES UPDATE TO REFLECT NEW DS
+""" solver function that utilizes backtracking. returns solved puzzle object,
+or None if given puzzle is unsolvable
 """
 # counts recursions
 count = 0
-# returns solved puzzle object, or None if given puzzle is unsolvable
 def solve_puzzle(puzzle):
     global count
 
@@ -329,25 +412,25 @@ def used_in_box(puzzle, row, col, candidate):
                 return True
     return False
 
+
 puzzle = init_puzzle(9)
-# make_puzzle(puzzle)
-# print_puzzle(puzzle)
+make_puzzle(puzzle)
+print_puzzle(puzzle)
 
-pen = turtle.Turtle()
-box_size = 50
-pen.speed(0)
-draw_board(pen, box_size)
-
-puzzle = solve_puzzle(puzzle)
-if puzzle:
-    print_puzzle(puzzle)
-    print("this puzzle is valid!")
-    fill_board(pen, puzzle, box_size)
-else:
-    print("no solution exists!")
-
-print("Recursions performed: " + str(count))
-
-pen.hideturtle()
-turtle.mainloop() 
-
+##pen = turtle.Turtle()
+##box_size = 50
+##pen.speed(0)
+##draw_board(pen, box_size)
+##
+##puzzle = solve_puzzle(puzzle)
+##if puzzle:
+##    print_puzzle(puzzle)
+##    print("this puzzle is valid!")
+##    fill_board(pen, puzzle, box_size)
+##else:
+##    print("no solution exists!")
+##
+##print("Recursions performed: " + str(count))
+##
+##pen.hideturtle()
+##turtle.mainloop() 
