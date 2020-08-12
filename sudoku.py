@@ -3,6 +3,8 @@
 import turtle
 import random
 import math
+import time
+from simulator import simulate
 
 """ to-dos:
         - rebuild fundamental data structure            DONE 11/08
@@ -59,6 +61,7 @@ def draw_board(t, box_size):
     t.pu()
     t.goto(0, 0)
 
+
 # draws a single box with lengths of given size
 # precondition: turtle pen is down
 # postcondition: turtle facing same as before fn call
@@ -66,6 +69,7 @@ def draw_box(t, size):
     for i in range(4):
        t.fd(size)
        t.lt(90)
+
 
 # TO DO: generalize for puzzles not 9x9 in size
 # postcondition: all non-zero values filled into board, pen is up
@@ -105,10 +109,10 @@ def fill_board(t, puzzle, box_size):
             t.pd()
     t.pu()
 
+
 # TO DO: generalize for puzzles not 9x9 in size
 # precondition: x and y be w/n range of grid
-# postcondition: cell (x, y) is filled with determinate value or error is
-# marked, and pen is up
+# postcondition: cell (x, y) is has value or error marked, and pen is up
 def fill_cell(t, x, y, puzzle, box_size):
     pen_to_cell(t, x, y, box_size)
     i = int(math.sqrt(len(puzzle))) * x + y
@@ -125,6 +129,7 @@ def fill_cell(t, x, y, puzzle, box_size):
     # otherwise, cell has multiple candidates; print nothing
     t.pu()
 
+
 """ This function initializes a blank puzzle. A puzzle is a list of 81 lists,
 where each nested list represents the candidate values for a particular cell.
 The row and column for each cell is implicit in the data structure as follows:
@@ -138,8 +143,9 @@ When the nested list of candidate values for a particular cell is exactly 1,
 that cell has a determinate value. When the nested list of candidate values is
 empty, there is no valid value for that cell and the puzzle is thus unsolvable.
 """
-def init_puzzle(size):
-    puzzle = []         
+def initialize(size=9):
+    puzzle = []
+    
     for i in range(size**2):
         puzzle.append('123456789')
         
@@ -159,20 +165,21 @@ def insert(value, index, puzzle):
     puzzle[index] = value
 
 
-""" This function takes a blank 9x9 puzzle and fills in boxes 1 - 3 and the
-first column. It ensures the placements are valid, and selects candidates
+""" This function produces a 9x9 puzzle with boxes 1 - 3 and the first column
+filled. It ensures the placements are valid, and selects candidates
 randomly. It also updates the candidate lists of neighbors along the way.
-
-precondition: given puzzle is 9x9 and has no solved cells
 
 TODO: generalize to any puzzle size
 """
-def make_puzzle(puzzle):
+def make(puzzle=None, size=9):
+    if not puzzle:
+        # no puzzle given; start with a blank one
+        puzzle = initialize(size)
+    
     """ size is the length of one dimension of the puzzle (e.g., 9 for a 9x9
     sudoku), and box_size is the length of one box of the puzzle (e.g., 3 for
     a 9x9 sudoku).
     """
-    size = int(math.sqrt(len(puzzle)))
     box_size = int(math.sqrt(size))
     
     # step one: fill box 1
@@ -234,7 +241,9 @@ def make_puzzle(puzzle):
     for i in range(top_left_index, row_beyond_puzzle_index, row_index_delta):
         values = random.sample(list(puzzle[i]), len(puzzle[i]))
         candidate = values.pop()
-        insert(candidate, i, puzzle)       
+        insert(candidate, i, puzzle)
+
+    return puzzle
     
 
 # TO DO: generalize for puzzles not 9x9 in size
@@ -255,6 +264,7 @@ def pen_to_cell(t, x, y, box_size):
     # prep pen to fill cell (x, y)
     t.lt(90)
     t.pd()
+
 
 # prints puzzle in makeshift board in console, faster for debugging
 def print_puzzle(puzzle):
@@ -285,12 +295,30 @@ def print_puzzle(puzzle):
             print('|')
     print('-------------------------')
 
-def puzzle_is_complete(puzzle):
+
+def is_complete(puzzle):
     for i in range(len(puzzle)):
         if len(puzzle[i]) > 1:
             return False
     return True
 
+
+def run_simulations():
+    print("Generating blank puzzles:")
+    simulate(initialize, 9)
+    print("Generating and solving blank puzzles non-randomly:")
+    count = 0
+    simulate(solve, initialize())
+    print("Recursions performed: " + str(count))
+
+    print("Generating partially pre-filled puzzles:")
+    simulate(make)
+    print("Generating and solving partially pre-filled puzzles non-randomly:")
+    count = 0
+    simulate(solve, make())
+    print("Recursions performed: " + str(count))
+
+    
 """ The following functions remove a given candidate from the candidate
 lists of all cells in the given row, column, or box.
 
@@ -331,24 +359,17 @@ or None if given puzzle is unsolvable
 """
 # counts recursions
 count = 0
-def solve_puzzle(puzzle):
+def solve(puzzle):
     global count
 
     size = len(puzzle)
     for i in range(size):
-        if puzzle_is_complete(puzzle):
+        if is_complete(puzzle):
             return puzzle
-        row = i // int(math.sqrt(size))
-        col = i % int(math.sqrt(size))
         if len(puzzle[i]) == 1:
             # cell has a solution; cell might have been filled automatically by
-            # elimination, so remove it from all neighbors before moving on
-            candidate = puzzle[i]
-            rm_from_row(puzzle, row, candidate)
-            rm_from_col(puzzle, col, candidate)
-            rm_from_box(puzzle, row, col, candidate)
-            # above fns will remove candidate from puzzle[i]; reassign
-            puzzle[i] = candidate
+            # elimination, so remove it from neighbors with insert()
+            insert(puzzle[i], i, puzzle)
             continue
         if len(puzzle[i]) == 0:
             # cell has no possible solutions; puzzle unsolvable
@@ -356,24 +377,14 @@ def solve_puzzle(puzzle):
         if len(puzzle[i]) > 1:
             # cell has more than one candidate
             for candidate in puzzle[i]:
-                if (not used_in_row(puzzle, row, candidate) and
-                    not used_in_col(puzzle, col, candidate) and
-                    not used_in_box(puzzle, row, col, candidate)):
-                    # candidate looks good; make copy for recursion
+                if valid(candidate, i, puzzle):
+                    # candidate looks good; insert into copy for recursion
                     puzzle_copy = puzzle[:]
-
-                    # remove candidate from candidates of all cells in same
-                    # row, column, or box
-                    rm_from_row(puzzle_copy, row, candidate)
-                    rm_from_col(puzzle_copy, col, candidate)
-                    rm_from_box(puzzle_copy, row, col, candidate)
-
-                    # assign candidate to cell
-                    puzzle_copy[i] = candidate
+                    insert(candidate, i, puzzle_copy)
 
                     # recurse on copy
                     count += 1
-                    puzzle_copy = solve_puzzle(puzzle_copy)
+                    puzzle_copy = solve(puzzle_copy)
                     if puzzle_copy:
                         # candidate works; make copy main puzzle
                         puzzle = puzzle_copy
@@ -413,24 +424,24 @@ def used_in_box(puzzle, row, col, candidate):
     return False
 
 
-puzzle = init_puzzle(9)
-make_puzzle(puzzle)
-print_puzzle(puzzle)
+""" helper function for solve(). Checks whether given value is valid
+for cell at given index in puzzle.
+"""
+def valid(candidate, index, puzzle):
+    size = int(math.sqrt(len(puzzle)))
+    row = index // size
+    col = index % size
+    return (not used_in_row(puzzle, row, candidate) and
+            not used_in_col(puzzle, col, candidate) and
+            not used_in_box(puzzle, row, col, candidate))
+
+
+
 
 ##pen = turtle.Turtle()
 ##box_size = 50
 ##pen.speed(0)
 ##draw_board(pen, box_size)
-##
-##puzzle = solve_puzzle(puzzle)
-##if puzzle:
-##    print_puzzle(puzzle)
-##    print("this puzzle is valid!")
-##    fill_board(pen, puzzle, box_size)
-##else:
-##    print("no solution exists!")
-##
-##print("Recursions performed: " + str(count))
-##
+##fill_board(pen, puzzle, box_size)
 ##pen.hideturtle()
 ##turtle.mainloop() 
