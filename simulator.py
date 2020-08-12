@@ -19,5 +19,5 @@ def simulate(fn, *args, num_sims=1000):
     var = statistics.variance(times)
 
     print(f"{fn} called {num_sims} times.")
-    print(f"\tmean \t {mean * 1000:.10f} ms per call")
-    print(f"\tvar \t {var * 1000:.10f} ms per call")
+    print(f"\tmean {mean * 1000:.10f} ms per call")
+    print(f"\tvar  {var * 1000:.10f} ms per call")

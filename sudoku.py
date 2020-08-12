@@ -8,7 +8,7 @@ from simulator import simulate
 
 """ to-dos:
         - rebuild fundamental data structure            DONE 11/08
-        - randomize solve patterns                      IN PROGRESS 31/07
+        - randomize solve patterns                      DONE 12/08
             - rewrite make_puzzle to partially fill     DONE 11/08
         - optimize solve function                       IN PROGRESS 31/07
         - enhance solve fn to count solutions
@@ -16,6 +16,7 @@ from simulator import simulate
         - removal algorithm - basic
         - removal algorithm - multiple difficulties
         - generalize turtle fns for puzzles not 9x9
+        - generalize initialize() and make() for size
         - implement GUI
             - fill cells
             - call for solvability
@@ -304,19 +305,27 @@ def is_complete(puzzle):
 
 
 def run_simulations():
-    print("Generating blank puzzles:")
-    simulate(initialize, 9)
+    global count
+    
     print("Generating and solving blank puzzles non-randomly:")
     count = 0
     simulate(solve, initialize())
-    print("Recursions performed: " + str(count))
+    print("Average recursions performed: " + str(count / 1000))
 
-    print("Generating partially pre-filled puzzles:")
-    simulate(make)
+    print("Generating and solving blank puzzles randomly:")
+    count = 0
+    simulate(solve_rand, initialize())
+    print("Average recursions performed: " + str(count / 1000))
+
     print("Generating and solving partially pre-filled puzzles non-randomly:")
     count = 0
     simulate(solve, make())
-    print("Recursions performed: " + str(count))
+    print("Average recursions performed: " + str(count / 1000))
+
+    print("Generating and solving partially pre-filled puzzles randomly:")
+    count = 0
+    simulate(solve_rand, make())
+    print("Average recursions performed: " + str(count / 1000))
 
     
 """ The following functions remove a given candidate from the candidate
@@ -424,6 +433,77 @@ def used_in_box(puzzle, row, col, candidate):
     return False
 
 
+""" solver function that utilizes backtracking and randomization. returns
+solved puzzle object, or None if given puzzle is unsolvable
+"""
+# counts recursions
+count = 0
+def solve_rand(puzzle):
+    global count
+
+    size = len(puzzle)
+    for i in range(size):
+        if is_complete(puzzle):
+            return puzzle
+        if len(puzzle[i]) == 1:
+            # cell has a solution; cell might have been filled automatically by
+            # elimination, so remove it from neighbors with insert()
+            insert(puzzle[i], i, puzzle)
+            continue
+        if len(puzzle[i]) == 0:
+            # cell has no possible solutions; puzzle unsolvable
+            return None
+        if len(puzzle[i]) > 1:
+            # cell has more than one candidate
+            candidates = random.sample(puzzle[i], len(puzzle[i]))
+            for candidate in candidates:
+                if valid(candidate, i, puzzle):
+                    # candidate looks good; insert into copy for recursion
+                    puzzle_copy = puzzle[:]
+                    insert(candidate, i, puzzle_copy)
+
+                    # recurse on copy
+                    count += 1
+                    puzzle_copy = solve_rand(puzzle_copy)
+                    if puzzle_copy:
+                        # candidate works; make copy main puzzle
+                        puzzle = puzzle_copy
+                        return puzzle
+                    # otherwise, candidate is bad; try the next one
+            return None                                            
+    return None
+
+def used_in_row(puzzle, row, candidate):
+    size = int(math.sqrt(len(puzzle)))
+    row_index = row * size
+    for i in range(0, size):
+        j = row_index + i
+        if puzzle[j] == candidate:
+            return True
+    return False
+
+def used_in_col(puzzle, col, candidate):
+    size = int(math.sqrt(len(puzzle)))
+    for i in range(0, size**2, size):
+        j = i + col
+        if puzzle[j] == candidate:
+            return True
+    return False
+
+def used_in_box(puzzle, row, col, candidate):
+    # row and col values for cell in top-left corner of relevant box
+    box_r = row - (row % 3)
+    box_c = col - (col % 3)
+    # cell in top-left corner of relevant box
+    top_left = box_r * int(math.sqrt(len(puzzle))) + box_c
+    # now traverse all cells in box
+    for i in range(0, 19, 9):
+        for j in range(top_left + i, top_left + i + 3):
+            if puzzle[j] == candidate:
+                return True
+    return False
+
+
 """ helper function for solve(). Checks whether given value is valid
 for cell at given index in puzzle.
 """
@@ -436,7 +516,7 @@ def valid(candidate, index, puzzle):
             not used_in_box(puzzle, row, col, candidate))
 
 
-
+run_simulations()
 
 ##pen = turtle.Turtle()
 ##box_size = 50
