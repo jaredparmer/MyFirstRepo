@@ -6,7 +6,16 @@ import math
 import time
 from simulator import simulate
 
-""" to-dos:
+""" these global variables are used to track the performance of the various
+solve() functions. they must be initialized to zero by the caller to work!
+"""
+# counts recursions in solve fns
+recursions = 0
+# counts times None is returned in solve fns; roughly tracks failed branches
+failures = 0
+
+
+""" todos:
         - rebuild fundamental data structure            DONE 11/08
         - randomize solve patterns                      DONE 12/08
             - rewrite make_puzzle to partially fill     DONE 11/08
@@ -29,7 +38,7 @@ from simulator import simulate
             - highlight selected number (every 8, e.g.)
 """
 
-# TO DO: generalize for puzzles not 9x9 in size
+# TODO: generalize for puzzles not 9x9 in size
 # postcondition: turtle t at origin, facing east, pen is up
 def draw_board(t, box_size):
     # initialize pen and draw first set of boxes
@@ -70,6 +79,17 @@ def draw_box(t, size):
     for i in range(4):
        t.fd(size)
        t.lt(90)
+
+
+""" helper function for solve_fast(). returns the index of cell in puzzle with
+fewest remaining candidate values.
+"""
+def fewest_candidates(puzzle):
+    # initialize to very long string
+    fewest = '1' * len(puzzle)
+
+
+    return 1
 
 
 # TO DO: generalize for puzzles not 9x9 in size
@@ -297,6 +317,11 @@ def print_puzzle(puzzle):
     print('-------------------------')
 
 
+""" checks whether any cells still have more than one candidate. this will
+return true if some cells have zero candidates and the rest have exactly one;
+in such a situation, the puzzle is not 'really' complete, but is unsolvable.
+unsolvability is tested directly in the various solve() fns.
+"""
 def is_complete(puzzle):
     for i in range(len(puzzle)):
         if len(puzzle[i]) > 1:
@@ -305,27 +330,50 @@ def is_complete(puzzle):
 
 
 def run_simulations():
-    global count
-    
-    print("Generating and solving blank puzzles non-randomly:")
-    count = 0
-    simulate(solve, initialize())
-    print("Average recursions performed: " + str(count / 1000))
+    global recursions
+    global failures
 
-    print("Generating and solving blank puzzles randomly:")
-    count = 0
-    simulate(solve_rand, initialize())
-    print("Average recursions performed: " + str(count / 1000))
+    print("Non-random start, non-random solve:")
+    recursions = 0
+    failures = 0
+    simulate(solve_nonrand, initialize())
+    print("Average recursions performed: " + str(recursions / 1000))
+    print("Average branch failures: " + str(failures / 1000))
 
-    print("Generating and solving partially pre-filled puzzles non-randomly:")
-    count = 0
-    simulate(solve, make())
-    print("Average recursions performed: " + str(count / 1000))
+    print("Non-random start, random non-optimized solve:")
+    recursions = 0
+    failures = 0
+    simulate(solve_slow, initialize())
+    print("Average recursions performed: " + str(recursions / 1000))
+    print("Average branch failures: " + str(failures / 1000))
 
-    print("Generating and solving partially pre-filled puzzles randomly:")
-    count = 0
-    simulate(solve_rand, make())
-    print("Average recursions performed: " + str(count / 1000))
+##    print("Non-random start, random optimized solve:")
+##    recursions = 0
+##    failures = 0
+##    simulate(solve_fast, initialize())
+##    print("Average recursions performed: " + str(recursions / 1000))
+##    print("Average branch failures: " + str(failures / 1000))
+
+    print("Random start, non-random solve:")
+    recursions = 0
+    failures = 0
+    simulate(solve_nonrand, make())
+    print("Average recursions performed: " + str(recursions / 1000))
+    print("Average branch failures: " + str(failures / 1000))
+
+    print("Random start, random non-optimized solve:")
+    recursions = 0
+    failures = 0
+    simulate(solve_slow, make())
+    print("Average recursions performed: " + str(recursions / 1000))
+    print("Average branch failures: " + str(failures / 1000))
+
+##    print("Random start, random optimized solve:")
+##    recursions = 0
+##    failures = 0
+##    simulate(solve_fast, make())
+##    print("Average recursions performed: " + str(recursions / 1000))
+##    print("Average branch failures: " + str(failures / 1000))
 
     
 """ The following functions remove a given candidate from the candidate
@@ -363,13 +411,102 @@ def rm_from_box(puzzle, row, col, candidate):
             if candidate in puzzle[j]:
                 puzzle[j] = puzzle[j].replace(candidate, '')
 
-""" solver function that utilizes backtracking. returns solved puzzle object,
-or None if given puzzle is unsolvable
+
+""" solver function that utilizes backtracking, randomization, and
+optimization. returns solved puzzle object, or None if given puzzle is
+unsolvable.
+
+the optimization is that, rather than traversing all cells in order (from 0 to
+80 in a 9x9 puzzle, for example), the main loop of this function picks the
+cell with the fewest candidates.
 """
-# counts recursions
-count = 0
-def solve(puzzle):
-    global count
+def solve_fast(puzzle):
+    global recursions
+    global failures
+
+    while not is_complete(puzzle):
+        i = fewest_candidates(puzzle)
+        if len(puzzle[i]) == 1:
+            # cell has a solution; cell might have been filled automatically by
+            # elimination, so remove it from neighbors with insert()
+            insert(puzzle[i], i, puzzle)
+            continue
+        if len(puzzle[i]) == 0:
+            # cell has no possible solutions; puzzle unsolvable
+            failures += 1
+            return None
+        if len(puzzle[i]) > 1:
+            # cell has more than one candidate
+            candidates = random.sample(puzzle[i], len(puzzle[i]))
+            for candidate in candidates:
+                if valid(candidate, i, puzzle):
+                    # candidate looks good; insert into copy for recursion
+                    puzzle_copy = puzzle[:]
+                    insert(candidate, i, puzzle_copy)
+
+                    # recurse on copy
+                    recursions += 1
+                    puzzle_copy = solve_fast(puzzle_copy)
+                    if puzzle_copy:
+                        # candidate works; make copy main puzzle
+                        puzzle = puzzle_copy
+                        return puzzle
+                    # otherwise, candidate is bad; try the next one
+            failures += 1
+            return None                                            
+    return puzzle
+
+
+""" SUPERCEDED by solve_fast(). solver function that utilizes backtracking and
+randomization, but no optimization. returns solved puzzle object, or None if
+given puzzle is unsolvable.
+"""
+def solve_slow(puzzle):
+    global recursions
+    global failures
+
+    size = len(puzzle)
+    for i in range(size):
+        if is_complete(puzzle):
+            return puzzle
+        if len(puzzle[i]) == 1:
+            # cell has a solution; cell might have been filled automatically by
+            # elimination, so remove it from neighbors with insert()
+            insert(puzzle[i], i, puzzle)
+            failures += 1
+            continue
+        if len(puzzle[i]) == 0:
+            # cell has no possible solutions; puzzle unsolvable
+            return None
+        if len(puzzle[i]) > 1:
+            # cell has more than one candidate
+            candidates = random.sample(puzzle[i], len(puzzle[i]))
+            for candidate in candidates:
+                if valid(candidate, i, puzzle):
+                    # candidate looks good; insert into copy for recursion
+                    puzzle_copy = puzzle[:]
+                    insert(candidate, i, puzzle_copy)
+
+                    # recurse on copy
+                    recursions += 1
+                    puzzle_copy = solve_slow(puzzle_copy)
+                    if puzzle_copy:
+                        # candidate works; make copy main puzzle
+                        puzzle = puzzle_copy
+                        return puzzle
+                    # otherwise, candidate is bad; try the next one
+            failures += 1
+            return None
+    return None
+
+
+""" SUPERCEDED by solve_slow(). solver function that utilizes backtracking
+without randomization. returns solved puzzle object, or None if given puzzle is
+unsolvable.
+"""
+def solve_nonrand(puzzle):
+    global recursions
+    global failures
 
     size = len(puzzle)
     for i in range(size):
@@ -382,6 +519,7 @@ def solve(puzzle):
             continue
         if len(puzzle[i]) == 0:
             # cell has no possible solutions; puzzle unsolvable
+            failures += 1
             return None
         if len(puzzle[i]) > 1:
             # cell has more than one candidate
@@ -392,15 +530,17 @@ def solve(puzzle):
                     insert(candidate, i, puzzle_copy)
 
                     # recurse on copy
-                    count += 1
-                    puzzle_copy = solve(puzzle_copy)
+                    recursions += 1
+                    puzzle_copy = solve_nonrand(puzzle_copy)
                     if puzzle_copy:
                         # candidate works; make copy main puzzle
                         puzzle = puzzle_copy
                         return puzzle
                     # otherwise, candidate is bad; try the next one
-            return None                                            
+            failures += 1
+            return None
     return None
+
 
 def used_in_row(puzzle, row, candidate):
     size = int(math.sqrt(len(puzzle)))
@@ -432,46 +572,6 @@ def used_in_box(puzzle, row, col, candidate):
                 return True
     return False
 
-
-""" solver function that utilizes backtracking and randomization. returns
-solved puzzle object, or None if given puzzle is unsolvable
-"""
-# counts recursions
-count = 0
-def solve_rand(puzzle):
-    global count
-
-    size = len(puzzle)
-    for i in range(size):
-        if is_complete(puzzle):
-            return puzzle
-        if len(puzzle[i]) == 1:
-            # cell has a solution; cell might have been filled automatically by
-            # elimination, so remove it from neighbors with insert()
-            insert(puzzle[i], i, puzzle)
-            continue
-        if len(puzzle[i]) == 0:
-            # cell has no possible solutions; puzzle unsolvable
-            return None
-        if len(puzzle[i]) > 1:
-            # cell has more than one candidate
-            candidates = random.sample(puzzle[i], len(puzzle[i]))
-            for candidate in candidates:
-                if valid(candidate, i, puzzle):
-                    # candidate looks good; insert into copy for recursion
-                    puzzle_copy = puzzle[:]
-                    insert(candidate, i, puzzle_copy)
-
-                    # recurse on copy
-                    count += 1
-                    puzzle_copy = solve_rand(puzzle_copy)
-                    if puzzle_copy:
-                        # candidate works; make copy main puzzle
-                        puzzle = puzzle_copy
-                        return puzzle
-                    # otherwise, candidate is bad; try the next one
-            return None                                            
-    return None
 
 def used_in_row(puzzle, row, candidate):
     size = int(math.sqrt(len(puzzle)))
@@ -515,8 +615,11 @@ def valid(candidate, index, puzzle):
             not used_in_col(puzzle, col, candidate) and
             not used_in_box(puzzle, row, col, candidate))
 
-
 run_simulations()
+
+##puzzle = make()
+##puzzle = solve(puzzle)
+##print_puzzle(puzzle)
 
 ##pen = turtle.Turtle()
 ##box_size = 50
