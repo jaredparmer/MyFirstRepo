@@ -16,7 +16,8 @@ failures = 0
 
 
 """ todos:
-        - rebuild fundamental data structure            DONE 11/08
+        - rebuild fundamental data structure            DONE 19/08
+        - write fewest_candidates()                     IN PROGRESS 19/08
         - randomize solve patterns                      DONE 12/08
             - rewrite make_puzzle to partially fill     DONE 11/08
         - optimize solve function                       IN PROGRESS 31/07
@@ -88,8 +89,8 @@ def fewest_candidates(puzzle):
     # initialize to very long string
     fewest = '1' * len(puzzle)
 
-
-    return 1
+    
+    return l
 
 
 # TO DO: generalize for puzzles not 9x9 in size
@@ -105,7 +106,7 @@ def fill_board(t, puzzle, box_size):
 
     # fill boxes with elements from puzzle
     for i in range(len(puzzle)):
-        if len(puzzle[i]) == 1:
+        if isinstance(puzzle[i], int):
             # cell has determinate value; print it
             t.write(puzzle[i], move=False, align="center", 
                     font=("Arial", int(box_size / 2.5), "normal"))
@@ -115,7 +116,7 @@ def fill_board(t, puzzle, box_size):
             t.write('!', move=False, align="center", 
                     font=("Arial", int(box_size / 2.5), "normal"))
             t.pencolor('black')
-        # otherwise, cell has multiple candidates; print nothing and move
+        # otherwise, assume cell has multiple candidates; move on
         t.pu()
         t.fd(box_size)
         t.pd()
@@ -137,7 +138,7 @@ def fill_board(t, puzzle, box_size):
 def fill_cell(t, x, y, puzzle, box_size):
     pen_to_cell(t, x, y, box_size)
     i = int(math.sqrt(len(puzzle))) * x + y
-    if len(puzzle[i]) == 1:
+    if isinstance(puzzle[i], int):
         # cell has determinate value; print it
         t.write(puzzle[i], move=False, align="center", 
                 font=("Arial", int(box_size / 2.5), "normal"))
@@ -147,22 +148,22 @@ def fill_cell(t, x, y, puzzle, box_size):
         t.write('!', move=False, align="center", 
                 font=("Arial", int(box_size / 2.5), "normal"))
         t.pencolor('black')
-    # otherwise, cell has multiple candidates; print nothing
+    # otherwise, assume cell has multiple candidates; print nothing
     t.pu()
 
 
-""" This function initializes a blank puzzle. A puzzle is a list of 81 lists,
-where each nested list represents the candidate values for a particular cell.
-The row and column for each cell is implicit in the data structure as follows:
+""" This function initializes a blank puzzle. A puzzle is a list of 81 elements
+that are either strings of candidate values for a particular cell, or
+the integer solution for that cell. The row and column for each cell is
+implicit in the data structure as follows:
     row1col1, row1col2, ..., row1col9,
     row2col1, row2col2, ..., row2col9,
     .
     .
     .
     row9col1, row9col2, ..., row9col9
-When the nested list of candidate values for a particular cell is exactly 1,
-that cell has a determinate value. When the nested list of candidate values is
-empty, there is no valid value for that cell and the puzzle is thus unsolvable.
+When string of candidate values is empty, there is no valid value for that
+cell and the puzzle is thus unsolvable.
 """
 def initialize(size=9):
     puzzle = []
@@ -183,7 +184,19 @@ def insert(value, index, puzzle):
     rm_from_row(puzzle, row, value)
     rm_from_col(puzzle, col, value)
     rm_from_box(puzzle, row, col, value)
-    puzzle[index] = value
+    puzzle[index] = int(value)
+
+
+""" checks whether any cells have not been solved. Cells with candidates
+remaining (i.e., a non-empty string) or cells with no valid solution (i.e., an
+empty string) cause it to return False. Otherwise, the puzzle is complete and
+the function returns True.
+"""
+def is_complete(puzzle):
+    for i in range(len(puzzle)):
+        if not isinstance(puzzle[i], int):
+            return False
+    return True
 
 
 """ This function produces a 9x9 puzzle with boxes 1 - 3 and the first column
@@ -301,12 +314,12 @@ def print_puzzle(puzzle):
             # entered a new box; print vertical bar
             print('|', end= ' ')
 
-        if len(puzzle[i]) > 1:
+        if isinstance(puzzle[i], int):
+            # cell has determinate value
+            print(puzzle[i], end= ' ')
+        elif len(puzzle[i]) > 1:
             # cell has multiple candidates
             print("0", end=' ')
-        elif len(puzzle[i]) == 1:
-            # cell has a determinate value
-            print(puzzle[i][0], end=' ')
         else:
             # cell has no candidates, puzzle is unsolvable
             print("!", end=' ')
@@ -315,18 +328,6 @@ def print_puzzle(puzzle):
             # hit right edge of puzzle; move to next line
             print('|')
     print('-------------------------')
-
-
-""" checks whether any cells still have more than one candidate. this will
-return true if some cells have zero candidates and the rest have exactly one;
-in such a situation, the puzzle is not 'really' complete, but is unsolvable.
-unsolvability is tested directly in the various solve() fns.
-"""
-def is_complete(puzzle):
-    for i in range(len(puzzle)):
-        if len(puzzle[i]) > 1:
-            return False
-    return True
 
 
 def run_simulations():
@@ -379,16 +380,16 @@ def run_simulations():
 """ The following functions remove a given candidate from the candidate
 lists of all cells in the given row, column, or box.
 
-IMPORTANT: These fns should be run *before* the candidate is placed in the
-desired cell. They should also be run *after* the used_in_x() fns, as they
-assume the candidate is not an already-found solution to a cell in the row,
-column, or box.
+IMPORTANT: It is best to never call these fns directly, but to use insert(),
+which will do so prior to placement of the value in the cell.
 """
 def rm_from_row(puzzle, row, candidate):
     size = int(math.sqrt(len(puzzle)))
     row_index = row * size
     for i in range(0, size):
         j = row_index + i
+        if isinstance(puzzle[j], int):
+            continue
         if candidate in puzzle[j]:
             puzzle[j] = puzzle[j].replace(candidate, '')
 
@@ -396,6 +397,8 @@ def rm_from_col(puzzle, col, candidate):
     size = int(math.sqrt(len(puzzle)))
     for i in range(0, size**2, size):
         j = i + col
+        if isinstance(puzzle[j], int):
+            continue
         if candidate in puzzle[j]:
             puzzle[j] = puzzle[j].replace(candidate, '')
 
@@ -408,6 +411,8 @@ def rm_from_box(puzzle, row, col, candidate):
     # now traverse all cells in box
     for i in range(0, 19, 9):
         for j in range(top_left + i, top_left + i + 3):
+            if isinstance(puzzle[j], int):
+                continue
             if candidate in puzzle[j]:
                 puzzle[j] = puzzle[j].replace(candidate, '')
 
@@ -426,9 +431,12 @@ def solve_fast(puzzle):
 
     while not is_complete(puzzle):
         i = fewest_candidates(puzzle)
+        if isinstance(puzzle[i], int):
+            # cell has already been solved; move on
+            continue
         if len(puzzle[i]) == 1:
-            # cell has a solution; cell might have been filled automatically by
-            # elimination, so remove it from neighbors with insert()
+            # all candidates but one have been eliminated; officially
+            # solve cell with insert()
             insert(puzzle[i], i, puzzle)
             continue
         if len(puzzle[i]) == 0:
@@ -469,14 +477,17 @@ def solve_slow(puzzle):
     for i in range(size):
         if is_complete(puzzle):
             return puzzle
+        if isinstance(puzzle[i], int):
+            # cell has already been solved; move on
+            continue
         if len(puzzle[i]) == 1:
-            # cell has a solution; cell might have been filled automatically by
-            # elimination, so remove it from neighbors with insert()
+            # all candidates but one have been eliminated; officially
+            # solve cell with insert()
             insert(puzzle[i], i, puzzle)
-            failures += 1
             continue
         if len(puzzle[i]) == 0:
             # cell has no possible solutions; puzzle unsolvable
+            failures += 1
             return None
         if len(puzzle[i]) > 1:
             # cell has more than one candidate
@@ -512,9 +523,12 @@ def solve_nonrand(puzzle):
     for i in range(size):
         if is_complete(puzzle):
             return puzzle
+        if isinstance(puzzle[i], int):
+            # cell has already been solved; move on
+            continue
         if len(puzzle[i]) == 1:
-            # cell has a solution; cell might have been filled automatically by
-            # elimination, so remove it from neighbors with insert()
+            # all candidates but one have been eliminated; officially
+            # solve cell with insert()
             insert(puzzle[i], i, puzzle)
             continue
         if len(puzzle[i]) == 0:
@@ -547,7 +561,7 @@ def used_in_row(puzzle, row, candidate):
     row_index = row * size
     for i in range(0, size):
         j = row_index + i
-        if puzzle[j] == candidate:
+        if puzzle[j] == int(candidate):
             return True
     return False
 
@@ -555,7 +569,7 @@ def used_in_col(puzzle, col, candidate):
     size = int(math.sqrt(len(puzzle)))
     for i in range(0, size**2, size):
         j = i + col
-        if puzzle[j] == candidate:
+        if puzzle[j] == int(candidate):
             return True
     return False
 
@@ -568,38 +582,7 @@ def used_in_box(puzzle, row, col, candidate):
     # now traverse all cells in box
     for i in range(0, 19, 9):
         for j in range(top_left + i, top_left + i + 3):
-            if puzzle[j] == candidate:
-                return True
-    return False
-
-
-def used_in_row(puzzle, row, candidate):
-    size = int(math.sqrt(len(puzzle)))
-    row_index = row * size
-    for i in range(0, size):
-        j = row_index + i
-        if puzzle[j] == candidate:
-            return True
-    return False
-
-def used_in_col(puzzle, col, candidate):
-    size = int(math.sqrt(len(puzzle)))
-    for i in range(0, size**2, size):
-        j = i + col
-        if puzzle[j] == candidate:
-            return True
-    return False
-
-def used_in_box(puzzle, row, col, candidate):
-    # row and col values for cell in top-left corner of relevant box
-    box_r = row - (row % 3)
-    box_c = col - (col % 3)
-    # cell in top-left corner of relevant box
-    top_left = box_r * int(math.sqrt(len(puzzle))) + box_c
-    # now traverse all cells in box
-    for i in range(0, 19, 9):
-        for j in range(top_left + i, top_left + i + 3):
-            if puzzle[j] == candidate:
+            if puzzle[j] == int(candidate):
                 return True
     return False
 
