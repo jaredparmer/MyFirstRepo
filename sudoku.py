@@ -17,10 +17,10 @@ failures = 0
 
 """ todos:
         - rebuild fundamental data structure            DONE 19/08
-        - write fewest_candidates()                     IN PROGRESS 19/08
+        - write fewest_candidates()                     DONE 22/08
         - randomize solve patterns                      DONE 12/08
             - rewrite make_puzzle to partially fill     DONE 11/08
-        - optimize solve function                       IN PROGRESS 31/07
+        - optimize solve function                       DONE 22/08
         - enhance solve fn to count solutions
         - pickle puzzles
         - removal algorithm - basic
@@ -87,10 +87,23 @@ fewest remaining candidate values.
 """
 def fewest_candidates(puzzle):
     # initialize to very long string
-    fewest = '1' * len(puzzle)
-
-    
-    return l
+    fewest = -1
+    for i in range(len(puzzle)):
+        if isinstance(puzzle[i], int):
+            # cell is solved; skip it
+            continue
+        if len(puzzle[i]) <= 1:
+            """ cell has only one candidate, or is unsolvable; this cell should
+            be processed immediately by caller function.
+            """
+            return i
+        if fewest == -1:
+            # first candidate has been found;
+            fewest = i
+        elif len(puzzle[i]) < len(puzzle[fewest]):
+            # cell has fewest candidates of cells checked so far
+            fewest = i
+    return fewest
 
 
 # TO DO: generalize for puzzles not 9x9 in size
@@ -320,6 +333,9 @@ def print_puzzle(puzzle):
         elif len(puzzle[i]) > 1:
             # cell has multiple candidates
             print("0", end=' ')
+        elif len(puzzle[i]) == 1:
+            # cell has one candidate, but not officially solved
+            print("*", end=' ')
         else:
             # cell has no candidates, puzzle is unsolvable
             print("!", end=' ')
@@ -348,12 +364,12 @@ def run_simulations():
     print("Average recursions performed: " + str(recursions / 1000))
     print("Average branch failures: " + str(failures / 1000))
 
-##    print("Non-random start, random optimized solve:")
-##    recursions = 0
-##    failures = 0
-##    simulate(solve_fast, initialize())
-##    print("Average recursions performed: " + str(recursions / 1000))
-##    print("Average branch failures: " + str(failures / 1000))
+    print("Non-random start, random optimized solve:")
+    recursions = 0
+    failures = 0
+    simulate(solve_fast, initialize())
+    print("Average recursions performed: " + str(recursions / 1000))
+    print("Average branch failures: " + str(failures / 1000))
 
     print("Random start, non-random solve:")
     recursions = 0
@@ -369,12 +385,12 @@ def run_simulations():
     print("Average recursions performed: " + str(recursions / 1000))
     print("Average branch failures: " + str(failures / 1000))
 
-##    print("Random start, random optimized solve:")
-##    recursions = 0
-##    failures = 0
-##    simulate(solve_fast, make())
-##    print("Average recursions performed: " + str(recursions / 1000))
-##    print("Average branch failures: " + str(failures / 1000))
+    print("Random start, random optimized solve:")
+    recursions = 0
+    failures = 0
+    simulate(solve_fast, make())
+    print("Average recursions performed: " + str(recursions / 1000))
+    print("Average branch failures: " + str(failures / 1000))
 
     
 """ The following functions remove a given candidate from the candidate
@@ -431,9 +447,8 @@ def solve_fast(puzzle):
 
     while not is_complete(puzzle):
         i = fewest_candidates(puzzle)
-        if isinstance(puzzle[i], int):
-            # cell has already been solved; move on
-            continue
+        # fewest_candidates() skips solved cells
+        
         if len(puzzle[i]) == 1:
             # all candidates but one have been eliminated; officially
             # solve cell with insert()
@@ -508,7 +523,7 @@ def solve_slow(puzzle):
                     # otherwise, candidate is bad; try the next one
             failures += 1
             return None
-    return None
+    return puzzle
 
 
 """ SUPERCEDED by solve_slow(). solver function that utilizes backtracking
@@ -553,7 +568,7 @@ def solve_nonrand(puzzle):
                     # otherwise, candidate is bad; try the next one
             failures += 1
             return None
-    return None
+    return puzzle
 
 
 def used_in_row(puzzle, row, candidate):
@@ -601,8 +616,9 @@ def valid(candidate, index, puzzle):
 run_simulations()
 
 ##puzzle = make()
-##puzzle = solve(puzzle)
+##puzzle = solve_fast(puzzle)
 ##print_puzzle(puzzle)
+
 
 ##pen = turtle.Turtle()
 ##box_size = 50
