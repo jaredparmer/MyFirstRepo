@@ -2,6 +2,7 @@
 
 import random
 import math
+import time
 
 
 """ todos:
@@ -23,6 +24,13 @@ import math
             - center notation
         - highligher
         - highlight selected number (every 8, e.g.)
+    - write fns for IDing strategies
+        - X wing
+        - XY wing
+        - Schrodinger cell
+        - swordfish pattern
+        - empty rectangle
+        - jellyfish pattern
 """
 
 
@@ -31,7 +39,7 @@ class Sudoku:
 
     # TODO: error catch sizes that aren't perfect squares or not int
     # TODO: generalize to Sudokus of any (perfect square) size
-    def __init__(self, size=9, label=''):
+    def __init__(self, size=9, label=time.time()):
         # instance attributes
         self.size = size
         self.box_size = int(math.sqrt(size))
@@ -82,13 +90,12 @@ class Sudoku:
                 if row < self.box_size - 1:
                     """ we're not on last row, so only pick a value for the
                     cell that won't make last row unsolvable. """
-                    bottom_right_cell = self.size * (self.box_size - 1)
-                                        + self.box_size
+                    brc = self.size * (self.box_size - 1) + self.box_size
+                    
                     for v in values:
                         """ temporarily remove v from candidates for cell in
                         bottom-right corner of the current/second box """
-                        brc_wo_v =
-                                self.puzzle[bottom_right_cell].replace(v, '')
+                        brc_wo_v = self.puzzle[brc].replace(v, '')
                         if len(brc_wo_v) >= self.box_size:
                             # bottom row of box will still be solvable
                             candidate = v
@@ -121,51 +128,55 @@ class Sudoku:
             candidate = values.pop()
             self.insert(candidate, i)
 
-        # step five: fill rest of puzzle using backtracking solve_fast()
-        self.puzzle = self.solve_fast()
+        # step five: fill rest of puzzle using backtracking solve()
+        self.puzzle = self.solve()
         
 
     def __str__(self):
-        print(self.label + ':\n')
+        res = self.label + ':\n'
         for i in range(self.size**2):
             row = i // self.size
             col = i % self.size
             if row % self.box_size == 0 and col == 0:
                 # starting a new row; print horizontal bar
-                print('-------------------------')
+                res += '-------------------------\n'
             if col % self.box_size == 0:
                 # entered a new box; print vertical bar
-                print('|', end= ' ')
+                res += '| '
 
             if isinstance(self.puzzle[i], int):
                 # cell has determinate value
-                print(self.puzzle[i], end= ' ')
+                res += str(self.puzzle[i]) + ' '
             elif len(self.puzzle[i]) > 1:
                 # cell has multiple candidates
-                print("0", end=' ')
+                res += '0 '
             elif len(self.puzzle[i]) == 1:
                 # cell has one candidate, but not officially solved
-                print("*", end=' ')
+                res += '* '
             else:
                 # cell has no candidates, puzzle is unsolvable
-                print("!", end=' ')
+                res += '! '
 
-            if col == size - 1:
+            if col == self.size - 1:
                 # hit right edge of puzzle; move to next line
-                print('|')
-        print('-------------------------')
+                res += '|\n'
+        res += '-------------------------\n'
+        return res
 
 
-    def fewest_candidates(self):
-        """ helper function for solve_fast(). returns the index of cell in
+    def fewest_candidates(self, puzzle=None):
+        """ helper function for solve(). returns the index of cell in
         puzzle with fewest remaining candidate values.
         """
+        if puzzle is None:
+            puzzle = self.puzzle
+            
         fewest = -1
         for i in range(self.size**2):
-            if isinstance(self.puzzle[i], int):
+            if isinstance(puzzle[i], int):
                 # cell is solved; skip it
                 continue
-            if len(self.puzzle[i]) <= 1:
+            if len(puzzle[i]) <= 1:
                 """ cell has only one candidate, or is unsolvable; this cell
                 should be processed immediately by caller function.
                 """
@@ -173,15 +184,18 @@ class Sudoku:
             if fewest == -1:
                 # first candidate has been found;
                 fewest = i
-            elif len(self.puzzle[i]) < len(self.puzzle[fewest]):
+            elif len(puzzle[i]) < len(puzzle[fewest]):
                 # cell has fewest candidates of cells checked so far
                 fewest = i
         return fewest
 
 
-    def insert(self, value, index):
+    def insert(self, value, index, puzzle=None):
         """ Inserts given value into given cell of Sudoku puzzle. Helper
-        function for __init__() and solve_fast(). """
+        function for __init__() and solve(). """
+        if puzzle is None:
+            puzzle = self.puzzle
+            
         row = index // self.size
         col = index % self.size
 
@@ -189,18 +203,18 @@ class Sudoku:
         row_index = row * self.size
         for i in range(0, self.size):
             j = row_index + i
-            if isinstance(self.puzzle[j], int):
+            if isinstance(puzzle[j], int):
                 continue
-            if candidate in self.puzzle[j]:
-                self.puzzle[j] = self.puzzle[j].replace(candidate, '')
+            if value in puzzle[j]:
+                puzzle[j] = puzzle[j].replace(value, '')
 
         # step two: now remove it from candidates in column
         for i in range(0, self.size**2, self.size):
             j = i + col
-            if isinstance(self.puzzle[j], int):
+            if isinstance(puzzle[j], int):
                 continue
-            if candidate in self.puzzle[j]:
-                self.puzzle[j] = self.puzzle[j].replace(candidate, '')
+            if value in puzzle[j]:
+                puzzle[j] = puzzle[j].replace(value, '')
 
         # step three: finally remove it from candidates in box
         # row and col values for cell in top-left corner of relevant box
@@ -213,37 +227,43 @@ class Sudoku:
             for j in range(top_left + i, top_left + i + 3):
                 if isinstance(puzzle[j], int):
                     continue
-                if candidate in puzzle[j]:
-                    puzzle[j] = puzzle[j].replace(candidate, '')        
+                if value in puzzle[j]:
+                    puzzle[j] = puzzle[j].replace(value, '')        
 
         # step four: insert value
-        self.puzzle[index] = int(value)
+        puzzle[index] = int(value)
 
 
-    def is_complete(self):
+    def is_complete(self, puzzle=None):
         """ checks whether any cells have not been solved. Cells with
         candidates remaining (i.e., a non-empty string) or cells with no valid
         solution (i.e., an empty string) cause it to return False. Otherwise,
         the puzzle is complete and the function returns True.
         """
+        if puzzle is None:
+            puzzle = self.puzzle
+            
         for i in range(self.size**2):
-            if not isinstance(self.puzzle[i], int):
+            if not isinstance(puzzle[i], int):
                 return False
         return True
 
 
-    def is_valid(self, candidate, index):
-        """ helper function for solve_fast(). Checks whether given value is
+    def is_valid(self, candidate, index, puzzle=None):
+        """ helper function for solve(). Checks whether given value is
         valid for cell at given index in puzzle.
         """
+        if puzzle is None:
+            puzzle = self.puzzle
+            
         row = index // self.size
         col = index % self.size
-        return (not self.used_in_row(row, candidate) and
-                not self.used_in_col(col, candidate) and
-                not self.used_in_box(row, col, candidate))
+        return (not self.used_in_row(row, candidate, puzzle) and
+                not self.used_in_col(col, candidate, puzzle) and
+                not self.used_in_box(row, col, candidate, puzzle))
 
 
-    def solve_fast(self, puzzle=self.puzzle):
+    def solve(self, puzzle=None):
         """ solver function that utilizes backtracking, randomization, and
         optimization. returns solved puzzle object, or None if given puzzle is
         unsolvable.
@@ -252,62 +272,72 @@ class Sudoku:
         (from 0 to 80 in a 9x9 puzzle, for example), the main loop of this
         function picks the cell with the fewest candidates.
         """
-
-        while not self.is_complete():
-            i = self.fewest_candidates()
+        if puzzle is None:
+            puzzle = self.puzzle
+            
+        while not self.is_complete(puzzle):
+            i = self.fewest_candidates(puzzle)
             # fewest_candidates() skips solved cells
             
-            if len(self.puzzle[i]) == 1:
+            if len(puzzle[i]) == 1:
                 # all candidates but one have been eliminated; officially
                 # solve cell with insert()
-                self.insert(puzzle[i], i)
+                self.insert(puzzle[i], i, puzzle)
                 continue
-            if len(self.puzzle[i]) == 0:
+            if len(puzzle[i]) == 0:
                 # cell has no possible solutions; puzzle unsolvable
                 return None
-            if len(self.puzzle[i]) > 1:
+            if len(puzzle[i]) > 1:
                 # cell has more than one candidate
-                candidates = random.sample(self.puzzle[i], len(self.puzzle[i]))
+                candidates = random.sample(puzzle[i], len(puzzle[i]))
                 for candidate in candidates:
-                    if self.is_valid(candidate, i):
+                    if self.is_valid(candidate, i, puzzle):
                         # candidate looks good; insert into copy for recursion
-                        puzzle_copy = self.puzzle[:]
+                        puzzle_copy = puzzle[:]
 
-
-                        # THIS AND REST OF IF STATEMENT WON'T WORK
-                        insert(candidate, i, puzzle_copy)
+                        self.insert(candidate, i, puzzle_copy)
 
                         # recurse on copy
-                        puzzle_copy = solve_fast(puzzle_copy)
-                        if puzzle_copy:
+                        puzzle_copy = self.solve(puzzle_copy)
+                        if puzzle_copy is not None:
                             # candidate works; make copy main puzzle
-                            puzzle = puzzle_copy
-                            return puzzle
+                            self.puzzle = puzzle_copy
+                            return self.puzzle
                         # otherwise, candidate is bad; try the next one
                 # none of the candidates work; puzzle is unsolvable
                 return None
         # puzzle is complete and hence valid; return it
-        return puzzle
+        self.puzzle = puzzle
+        return self.puzzle
 
 
-    def used_in_row(self, row, candidate):
+    def used_in_row(self, row, candidate, puzzle=None):
+        if puzzle is None:
+            puzzle = self.puzzle
+            
         row_index = row * self.size
         for i in range(0, self.size):
             j = row_index + i
-            if self.puzzle[j] == int(candidate):
+            if puzzle[j] == int(candidate):
                 return True
         return False
 
 
-    def used_in_col(self, col, candidate):
+    def used_in_col(self, col, candidate, puzzle=None):
+        if puzzle is None:
+            puzzle = self.puzzle
+            
         for i in range(0, self.size**2, self.size):
             j = i + col
-            if self.puzzle[j] == int(candidate):
+            if puzzle[j] == int(candidate):
                 return True
         return False
 
 
-    def used_in_box(self, row, col, candidate):
+    def used_in_box(self, row, col, candidate, puzzle=None):
+        if puzzle is None:
+            puzzle = self.puzzle
+            
         # row and col values for cell in top-left corner of relevant box
         box_r = row - (row % 3)
         box_c = col - (col % 3)
@@ -316,11 +346,10 @@ class Sudoku:
         # now traverse all cells in box
         for i in range(0, 19, 9):
             for j in range(top_left + i, top_left + i + 3):
-                if self.puzzle[j] == int(candidate):
+                if puzzle[j] == int(candidate):
                     return True
         return False
 
 
-##puzzle = make()
-##puzzle = solve(puzzle)
-##print_puzzle(puzzle)
+puzzle = Sudoku()
+print(puzzle)
