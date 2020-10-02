@@ -6,8 +6,8 @@ import time
 
 
 """ todos:
-    - create Sudoku class                                 IN PROGRESS 08/09
-        - solve_fast() and helper fns need puzzle as arg  START ASAP
+    - create Sudoku class                                 DONE 01/10
+        - solve_fast() and helper fns need puzzle as arg  DONE 01/10
     - enhance solve fn to count solutions                 IN PROGRESS 08/09
     - pickle puzzles
     - removal algorithm - basic
@@ -39,13 +39,13 @@ class Sudoku:
 
     # TODO: error catch sizes that aren't perfect squares or not int
     # TODO: generalize to Sudokus of any (perfect square) size
-    def __init__(self, size=9, label=time.time()):
+    def __init__(self, size=9, label=time.time(), puzzle=[]):
         # instance attributes
         self.size = size
         self.box_size = int(math.sqrt(size))
-        self.solutions = 0
         self.label = str(label)
-        self.puzzle = []
+        self.solutions = 0
+        self.puzzle = puzzle
         """ A puzzle is a list of elements that are either strings of candidate
         values for a particular cell, or the integer solution for that cell.
         The row and column for each cell is implicit in the data structure as
@@ -59,8 +59,30 @@ class Sudoku:
         When the string of candidate values is empty, there is no valid value
         for that cell and the puzzle is thus unsolvable.
         """
-      
-        """ The remainder of this initialization produces a solved puzzle. """
+
+        if self.puzzle == []:
+            # user has not provided puzzle values; make a puzzle from scratch
+            self.make()
+        else:
+            """ TODO: ensure user did not provide invalid values (e.g., two 9s
+            in the same row """
+            
+            # ensure any empty cells are populated with candidates
+            for i in range(len(puzzle)):
+                if not isinstance(puzzle[i], int) or puzzle[i] == 0:
+                    # user did not provide value for cell
+                    puzzle[i] = '123456789'
+                    
+            """ ensure puzzle has the right number of elements (e.g., 81 for a
+            classix 9x9 puzzle); if not, extend with candidates """
+            for i in range(self.size ** 2 - len(puzzle)):
+                # user did not provide enough values to fill entire puzzle;
+                self.puzzle.append('123456789')
+
+
+    def make(self):
+        """ fills the first three boxes and first column of a blank puzzle """
+
         # step zero: initialize puzzle with all candidates
         for i in range(self.size**2):
             self.puzzle.append('123456789')
@@ -127,9 +149,6 @@ class Sudoku:
             values = random.sample(list(self.puzzle[i]), len(self.puzzle[i]))
             candidate = values.pop()
             self.insert(candidate, i)
-
-        # step five: fill rest of puzzle using backtracking solve()
-        self.puzzle = self.solve()
         
 
     def __str__(self):
@@ -263,6 +282,17 @@ class Sudoku:
                 not self.used_in_box(row, col, candidate, puzzle))
 
 
+    def score(self, puzzle=None):
+        """ returns numerical difficulty score for puzzle """
+        if puzzle is None:
+            puzzle = self.puzzle
+
+        # TBD. placeholder:
+        return len(puzzle)
+
+
+    # TODO: check to ensure given puzzle is valid; e.g., solve() currently
+    # ignores the fact that the puzzle has two 1s in the top row
     def solve(self, puzzle=None):
         """ solver function that utilizes backtracking, randomization, and
         optimization. returns solved puzzle object, or None if given puzzle is
@@ -306,8 +336,9 @@ class Sudoku:
                         # otherwise, candidate is bad; try the next one
                 # none of the candidates work; puzzle is unsolvable
                 return None
-        # puzzle is complete and hence valid; return it
+        # puzzle is complete
         self.puzzle = puzzle
+        self.solutions += 1
         return self.puzzle
 
 
@@ -353,3 +384,9 @@ class Sudoku:
 
 puzzle = Sudoku()
 print(puzzle)
+puzzle.solve()
+print(puzzle)
+
+values = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+custom = Sudoku(puzzle=values)
+print(custom)
