@@ -8,7 +8,8 @@ import time
 """ todos:
     - create Sudoku class                                 DONE 01/10
         - solve_fast() and helper fns need puzzle as arg  DONE 01/10
-    - enhance solve fn to count solutions                 IN PROGRESS 08/09
+    - enhance solve fn to count solutions                 DONE 15/10
+    - write scoring function                              IN PROGRESS 15/10
     - pickle puzzles
     - removal algorithm - basic
     - removal algorithm - multiple difficulties
@@ -44,6 +45,9 @@ class Sudoku:
         self.size = size
         self.box_size = int(math.sqrt(size))
         self.label = str(label)
+        self.candidates = ''
+        for i in range(self.size):
+            self.candidates += str(i + 1)
                
         """ A puzzle is a list of elements that are either strings of candidate
         values for a particular cell, or the integer solution for that cell.
@@ -66,6 +70,14 @@ class Sudoku:
         Only a given puzzle with a unique solution is valid. """
         self.solutions = []
 
+        """ difficulty associated with corresponding solution given by:
+             difficulty = B * 100 + E
+        where B is the sum (Bi - 1) ** 2 for every branching factor, and E is
+        the number of empty cells in the given puzzle. This score is computed
+        in solve_all(). """
+        self.difficulties = []
+        self.branch_factors = []
+
         if self.puzzle == []:
             # user has not provided puzzle values; make a puzzle from scratch
             self.make()
@@ -77,13 +89,13 @@ class Sudoku:
             for i in range(len(puzzle)):
                 if not isinstance(puzzle[i], int) or puzzle[i] == 0:
                     # user did not provide value for cell
-                    puzzle[i] = '123456789'
+                    puzzle[i] = self.candidates
                     
             """ ensure puzzle has the right number of elements (e.g., 81 for a
             classix 9x9 puzzle); if not, extend with candidates """
             for i in range(self.size ** 2 - len(puzzle)):
                 # user did not provide enough values to fill entire puzzle;
-                self.puzzle.append('123456789')
+                self.puzzle.append(self.candidates)
 
 
     def make(self):
@@ -91,7 +103,7 @@ class Sudoku:
 
         # step zero: initialize puzzle with all candidates
         for i in range(self.size**2):
-            self.puzzle.append('123456789')
+            self.puzzle.append(self.candidates)
 
         # step one: fill box 1
         # traverse by row and col the cells within the first box
@@ -195,15 +207,15 @@ class Sudoku:
             
         row = index // self.size
         col = index % self.size            
-        box_r = row - (row % 3)
-        box_c = col - (col % 3)
+        box_r = row - (row % self.box_size)
+        box_c = col - (col % self.box_size)
 
         # step one: remove value from candidates elsewhere in box
         # cell in top-left corner of relevant box
         top_left = box_r * int(math.sqrt(len(puzzle))) + box_c
         # now traverse all cells in box
-        for i in range(0, 19, 9):
-            for j in range(top_left + i, top_left + i + 3):
+        for i in range(0, self.size * self.box_size, self.size):
+            for j in range(top_left + i, top_left + i + self.box_size):
                 if isinstance(puzzle[j], int):
                     continue
                 if value in puzzle[j]:
@@ -294,15 +306,6 @@ class Sudoku:
         return res
 
 
-    def score(self, puzzle=None):
-        """ returns numerical difficulty score for puzzle """
-        if puzzle is None:
-            puzzle = self.puzzle
-
-        # TBD. placeholder:
-        return len(puzzle)
-
-
     # TODO: check to ensure given puzzle is valid; e.g., solve() currently
     # ignores the fact that the puzzle has two 1s in the top row
     def solve(self, puzzle=None):
@@ -380,14 +383,19 @@ class Sudoku:
             if len(puzzle[i]) > 1:
                 # cell has more than one candidate
                 candidates = random.sample(puzzle[i], len(puzzle[i]))
+                branches = 1
                 for candidate in candidates:
                     if self.is_valid(candidate, i, puzzle):
                         # candidate looks good; insert into copy for recursion
                         puzzle_copy = puzzle[:]
 
+                        print(f"trying {candidate} in ({i // self.size + 1}, "
+                              f"{i % self.size + 1})...")
+
                         self.insert(candidate, i, puzzle_copy)
 
-                        # recurse on copy
+                        # recurse on copy and mark branching
+                        branches += 1
                         puzzle_copy = self.solve_all(puzzle_copy)
 
                         # check that we haven't found more than one solution
@@ -396,12 +404,33 @@ class Sudoku:
                             # we have, so start kick
                             return puzzle_copy
                         
-                # none of the candidates work; puzzle is unsolvable
+                # search tree is exhausted from this node
+                self.branch_factors.append(branches)
                 return None
             
-        # puzzle is complete; store it in solutions
+        # puzzle is complete; store it in solutions and score
         if puzzle not in self.solutions:
             self.solutions.append(puzzle)
+
+            # scoring step one: calculate B, branch-difficulty score
+            terms = [(self.branch_factors[i] - 1) ** 2
+                     for i in range(len(self.branch_factors))]
+            B = sum(terms)
+
+            print("branch_factors: ", self.branch_factors)
+            print("terms: ", terms)
+            print("B = ", B)
+
+            # scoring step two: fetch number of empty cells in given puzzle
+            empty_cells = 0
+            for i in range(len(self.puzzle)):
+                if not isinstance(self.puzzle[i], int):
+                    empty_cells += 1
+
+            print("# of empty cells = ", empty_cells)
+
+            # scoring step three: calculate puzzle difficulty score
+            self.difficulties.append(B * 100 + empty_cells)
             
         return puzzle
 
@@ -411,13 +440,13 @@ class Sudoku:
             puzzle = self.puzzle
             
         # row and col values for cell in top-left corner of relevant box
-        box_r = row - (row % 3)
-        box_c = col - (col % 3)
+        box_r = row - (row % self.box_size)
+        box_c = col - (col % self.box_size)
         # cell in top-left corner of relevant box
         top_left = box_r * self.size + box_c
         # now traverse all cells in box
-        for i in range(0, 19, 9):
-            for j in range(top_left + i, top_left + i + 3):
+        for i in range(0, self.size * self.box_size, self.size):
+            for j in range(top_left + i, top_left + i + self.box_size):
                 if puzzle[j] == int(candidate):
                     return True
         return False
@@ -466,22 +495,25 @@ values = [0, 0, 0, 0, 0, 4, 0, 2, 8,
           9, 0, 0, 0, 0, 0, 5, 0, 7,
           6, 7, 0, 4, 0, 0, 0, 0, 0]
 
-puzzle = Sudoku(puzzle=values)
-print(puzzle)
-puzzle.solve_all()
-print("len(solutions)", len(puzzle.solutions))
-for i in range(len(puzzle.solutions)):
-    print(f"solution #{i}:")
-    print(puzzle.print(puzzle=puzzle.solutions[i]))
+##puzzle = Sudoku(puzzle=values)
+##print(puzzle)
+##puzzle.solve_all()
+##print("number of solutions: ", len(puzzle.solutions))
+##for i in range(len(puzzle.solutions)):
+##    print(f"solution #{i+1}:")
+##    print(puzzle.print(puzzle=puzzle.solutions[i]))
+##    print(puzzle.difficulties[i])
 
-values = [0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0]
-custom = Sudoku(puzzle=values)
-#print(custom)
+values = [1, 0, 0, 0,
+          0, 0, 1, 0,
+          4, 0, 3, 0,
+          0, 3, 0, 0]
+
+small = Sudoku(size=4, puzzle=values)
+print(small.print())
+small.solve_all()
+print("number of solutions: ", len(small.solutions))
+for i in range(len(small.solutions)):
+    print(f"solution #{i+1}:")
+    print(small.print(puzzle=small.solutions[i]))
+    print(small.difficulties[i])
