@@ -3,6 +3,7 @@
 import random
 import math
 import time
+import numpy as np
 
 
 """ todos:
@@ -42,6 +43,7 @@ class Sudoku:
     # TODO: generalize to Sudokus of any (perfect square) size
     def __init__(self, size=9, label=time.time(), puzzle=[]):
         # instance attributes:
+        self.puzzle = []
         self.size = size
         self.box_size = int(math.sqrt(size))
         self.label = str(label)
@@ -62,7 +64,6 @@ class Sudoku:
         When the string of candidate values is empty, there is no valid value
         for that cell and the puzzle is thus unsolvable.
         """
-        self.puzzle = puzzle
 
         """ a list of complete, valid solutions to the given puzzle; an
         unsolvable given puzzle has an empty list of solutions; a uniquely
@@ -78,24 +79,23 @@ class Sudoku:
         self.difficulties = []
         self.branch_factors = []
 
-        if self.puzzle == []:
+        if puzzle == []:
             # user has not provided puzzle values; make a puzzle from scratch
             self.make()
         else:
             """ TODO: ensure user did not provide invalid values (e.g., two 9s
             in the same row """
-            
-            # ensure any empty cells are populated with candidates
-            for i in range(len(puzzle)):
-                if not isinstance(puzzle[i], int) or puzzle[i] == 0:
-                    # user did not provide value for cell
-                    puzzle[i] = self.candidates
-                    
-            """ ensure puzzle has the right number of elements (e.g., 81 for a
-            classix 9x9 puzzle); if not, extend with candidates """
-            for i in range(self.size ** 2 - len(puzzle)):
-                # user did not provide enough values to fill entire puzzle;
+
+            """ step one: set self.puzzle to a blank puzzle """
+            for i in range(self.size ** 2):
                 self.puzzle.append(self.candidates)
+
+            """ step two: insert any given values with insert(), which also
+            removes that value from the candidate list of neighbors """
+            for i in range(len(puzzle)):
+                if isinstance(puzzle[i], int) and puzzle[i] != 0:
+                    # caller provided value for cell
+                    self.insert(str(puzzle[i]), i)
 
 
     def make(self):
@@ -289,12 +289,9 @@ class Sudoku:
             if isinstance(puzzle[i], int):
                 # cell has determinate value
                 res += str(puzzle[i]) + ' '
-            elif len(puzzle[i]) > 1:
+            elif len(puzzle[i]) >= 1:
                 # cell has multiple candidates
                 res += '0 '
-            elif len(puzzle[i]) == 1:
-                # cell has one candidate, but not officially solved
-                res += '* '
             else:
                 # cell has no candidates, puzzle is unsolvable
                 res += '! '
@@ -383,16 +380,20 @@ class Sudoku:
             if len(puzzle[i]) > 1:
                 # cell has more than one candidate
                 candidates = random.sample(puzzle[i], len(puzzle[i]))
-                branches = 1
+                branches = 0
                 for candidate in candidates:
                     if self.is_valid(candidate, i, puzzle):
                         # candidate looks good; insert into copy for recursion
                         puzzle_copy = puzzle[:]
 
-                        print(f"trying {candidate} in ({i // self.size + 1}, "
-                              f"{i % self.size + 1})...")
+##                        print(f"trying {candidate} in ({i // self.size + 1}, "
+##                              f"{i % self.size + 1})...")
+##                        print("all candidates for cell: ", candidates)
 
                         self.insert(candidate, i, puzzle_copy)
+
+                        ##print("state of puzzle:")
+                        ##print(self.print(puzzle=puzzle_copy))
 
                         # recurse on copy and mark branching
                         branches += 1
@@ -417,9 +418,9 @@ class Sudoku:
                      for i in range(len(self.branch_factors))]
             B = sum(terms)
 
-            print("branch_factors: ", self.branch_factors)
-            print("terms: ", terms)
-            print("B = ", B)
+##            print("branch_factors: ", self.branch_factors)
+##            print("terms: ", terms)
+##            print("B = ", B)
 
             # scoring step two: fetch number of empty cells in given puzzle
             empty_cells = 0
@@ -427,7 +428,7 @@ class Sudoku:
                 if not isinstance(self.puzzle[i], int):
                     empty_cells += 1
 
-            print("# of empty cells = ", empty_cells)
+##            print("# of empty cells = ", empty_cells)
 
             # scoring step three: calculate puzzle difficulty score
             self.difficulties.append(B * 100 + empty_cells)
@@ -475,28 +476,31 @@ class Sudoku:
         return False
 
 
-values = [1, 7, 4, 3, 8, 9, 6, 5, 2,
-          3, 6, 9, 5, 2, 4, 8, 1, 7,
-          5, 2, 8, 6, 1, 7, 4, 3, 9,
-          2, 0, 0, 0, 0, 0, 0, 0, 0,
-          6, 0, 0, 0, 0, 0, 0, 0, 0,
-          9, 0, 0, 0, 0, 0, 0, 0, 0,
-          8, 0, 0, 0, 0, 0, 0, 0, 0,
-          4, 0, 0, 0, 0, 0, 0, 0, 0,
-          7, 0, 0, 0, 0, 0, 0, 0, 0]
+# puzzle from dlbeer; his score is 55, mine is 55 before set-oriented change
+values = [5,3,4,0,0,8,0,1,0,
+          0,0,0,0,0,2,0,9,0,
+          0,0,0,0,0,7,6,0,4,
+          0,0,0,5,0,0,1,0,0,
+          1,0,0,0,0,0,0,0,3,
+          0,0,9,0,0,1,0,0,0,
+          3,0,5,4,0,0,0,0,0,
+          0,8,0,2,0,0,0,0,0,
+          0,6,0,7,0,0,3,8,2]
 
-values = [0, 0, 0, 0, 0, 4, 0, 2, 8,
-          4, 0, 6, 0, 0, 0, 0, 0, 5,
-          1, 0, 0, 0, 3, 0, 6, 0, 0,
-          0, 0, 0, 3, 0, 1, 0, 0, 0,
-          0, 8, 7, 0, 0, 0, 1, 4, 0,
-          0, 0, 0, 7, 0, 9, 0, 0, 0,
-          0, 0, 2, 0, 1, 0, 0, 0, 3,
-          9, 0, 0, 0, 0, 0, 5, 0, 7,
-          6, 7, 0, 4, 0, 0, 0, 0, 0]
+dlbeer_551 =
+         [3,7,0,0,0,9,0,0,6,
+          8,0,0,1,0,3,0,7,0,
+          0,0,0,0,0,0,0,0,8,
+          0,2,0,0,8,0,0,0,5,
+          1,8,7,0,0,0,6,4,2,
+          5,0,0,0,2,0,0,1,0,
+          7,0,0,0,0,0,0,0,0,
+          0,5,0,6,0,2,0,0,7,
+          2,0,0,3,0,0,0,6,1]
 
 ##puzzle = Sudoku(puzzle=values)
 ##print(puzzle)
+##print(puzzle.puzzle)
 ##puzzle.solve_all()
 ##print("number of solutions: ", len(puzzle.solutions))
 ##for i in range(len(puzzle.solutions)):
@@ -504,16 +508,37 @@ values = [0, 0, 0, 0, 0, 4, 0, 2, 8,
 ##    print(puzzle.print(puzzle=puzzle.solutions[i]))
 ##    print(puzzle.difficulties[i])
 
-values = [1, 0, 0, 0,
-          0, 0, 1, 0,
-          4, 0, 3, 0,
-          0, 3, 0, 0]
+# running trials
+scores = []
+puzzle = Sudoku(label='dlbeer 551', puzzle=dlbeer_551)
+print(puzzle)
+for i in range(1000):
+    puzzle.solve_all()
+    scores.append(puzzle.difficulties[0])
+    puzzle.solutions = []
+    puzzle.difficulties = []
+    puzzle.branch_factors = []
 
-small = Sudoku(size=4, puzzle=values)
-print(small.print())
-small.solve_all()
-print("number of solutions: ", len(small.solutions))
-for i in range(len(small.solutions)):
-    print(f"solution #{i+1}:")
-    print(small.print(puzzle=small.solutions[i]))
-    print(small.difficulties[i])
+print(f"average difficulty score = {np.mean(scores)}")
+    
+
+##values = [1, 0, 0, 0,
+##          0, 0, 1, 0,
+##          4, 0, 3, 0,
+##          0, 3, 0, 0]
+##
+##values = [1, 0, 4, 0,
+##          0, 0, 0, 3,
+##          0, 1, 3, 0,
+##          0, 0, 0, 0]
+##
+##small = Sudoku(size=4, puzzle=values)
+##print(small.print())
+##print(small.puzzle)
+##small.solve_all()
+##print("number of solutions: ", len(small.solutions))
+##for i in range(len(small.solutions)):
+##    print(f"solution #{i+1}:")
+##    print(small.print(puzzle=small.solutions[i]))
+##    print(small.difficulties[i])
+##
