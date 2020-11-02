@@ -10,7 +10,8 @@ import numpy as np
     - create Sudoku class                                 DONE 01/10
         - solve_fast() and helper fns need puzzle as arg  DONE 01/10
     - enhance solve fn to count solutions                 DONE 15/10
-    - write scoring function                              IN PROGRESS 15/10
+    - write scoring function                              DONE 02/11
+    - set-oriented solve optimization                     IN PROGRESS 02/11
     - pickle puzzles
     - removal algorithm - basic
     - removal algorithm - multiple difficulties
@@ -174,7 +175,7 @@ class Sudoku:
 
 
     def fewest_candidates(self, puzzle=None):
-        """ helper function for solve(). returns the index of cell in
+        """ helper function for solve_all(). returns the index of cell in
         puzzle with fewest remaining candidate values.
         """
         if puzzle is None:
@@ -197,6 +198,57 @@ class Sudoku:
                 # cell has fewest candidates of cells checked so far
                 fewest = i
         return fewest
+
+
+    def fewest_positions(self, puzzle=None):
+        """ helper function for solve_all(). returns the candidate value with
+        the fewest possible positions in a given set (row, column, or box) and
+        the indices of that set. """
+        if puzzle is None:
+            puzzle = self.puzzle
+
+        fpp_candidate = ''
+        fpp_positions = list(range(self.size**2))
+        
+        # find value with fewest candidate positions by column
+        d = {}
+        for col in range(0, 1):
+            for i in range(0, self.size**2, self.size):
+                j = i + col
+                if isinstance(puzzle[j], int):
+                    continue
+                
+                for candidate in puzzle[j]:
+                    if candidate in d:
+                        d[candidate].append(j)
+                    else:
+                        d[candidate] = [j]
+
+            print(f"after traversing column {col + 1}")
+            print(d)
+
+        for candidate in d:
+            if len(d[candidate]) < len(fpp_positions):
+                fpp_candidate = candidate
+                fpp_positions = d[candidate]
+
+##        # now by row
+##        d = {}
+##
+##        for candidate, positions in d.items():
+##            if len(candidate[positions]) < len(fpp_positions):
+##                fpp_candidate = candidate
+##                fpp_positions = positions
+##
+##        # now by box
+##        d = {}
+##
+##        for candidate, positions in d.items():
+##            if len(candidate[positions]) < len(fpp_positions):
+##                fpp_candidate = candidate
+##                fpp_positions = positions        
+        
+        return fpp_candidate, fpp_positions
 
 
     def insert(self, value, index, puzzle=None):
@@ -303,52 +355,25 @@ class Sudoku:
         return res
 
 
-    # TODO: check to ensure given puzzle is valid; e.g., solve() currently
-    # ignores the fact that the puzzle has two 1s in the top row
-    def solve(self, puzzle=None):
-        """ solver function that utilizes backtracking, randomization, and
-        optimization. Returns solved puzzle, or None if given puzzle is
-        unsolvable.
+    def score(self):
+        # step one: calculate B, branch-difficulty score
+        terms = [(self.branch_factors[i] - 1) ** 2
+                 for i in range(len(self.branch_factors))]
+        B = sum(terms)
 
-        the optimization is that, rather than traversing all cells in order
-        (from 0 to 80 in a 9x9 puzzle, for example), the main loop of this
-        function picks the cell with the fewest candidates.
-        """
-        if puzzle is None:
-            puzzle = self.puzzle[:]
-            
-        while not self.is_complete(puzzle):
-            i = self.fewest_candidates(puzzle)
-            # fewest_candidates() skips solved cells
-            
-            if len(puzzle[i]) == 1:
-                # all candidates but one have been eliminated; officially
-                # solve cell with insert()
-                self.insert(puzzle[i], i, puzzle)
-                continue
-            if len(puzzle[i]) == 0:
-                # cell has no possible solutions; puzzle unsolvable
-                return None
-            if len(puzzle[i]) > 1:
-                # cell has more than one candidate
-                candidates = random.sample(puzzle[i], len(puzzle[i]))
-                for candidate in candidates:
-                    if self.is_valid(candidate, i, puzzle):
-                        # candidate looks good; insert into copy for recursion
-                        puzzle_copy = puzzle[:]
+        # step two: fetch number of empty cells in given puzzle
+        empty_cells = 0
+        for i in range(len(self.puzzle)):
+            if not isinstance(self.puzzle[i], int):
+                empty_cells += 1
+                
+##      print("branch_factors: ", self.branch_factors)
+##      print("terms: ", terms)
+##      print("B = ", B)
+##      print("# of empty cells = ", empty_cells)
 
-                        self.insert(candidate, i, puzzle_copy)
-
-                        # recurse on copy
-                        puzzle_copy = self.solve(puzzle_copy)
-                        if puzzle_copy is not None:
-                            # candidate works
-                            return puzzle_copy
-                        # otherwise, candidate is bad; try the next one
-                # none of the candidates work; puzzle is unsolvable
-                return None
-        # puzzle is complete
-        return puzzle
+        # step three: calculate and store puzzle difficulty score
+        self.difficulties.append(B * 100 + empty_cells)
 
 
     # TODO: check to ensure given puzzle is valid; e.g., solve() currently
@@ -358,9 +383,10 @@ class Sudoku:
         optimization. Returns solved puzzle, or None if given puzzle is
         unsolvable. Stores found solutions in self.solutions list.
 
-        the optimization is that, rather than traversing all cells in order
-        (from 0 to 80 in a 9x9 puzzle, for example), the main loop of this
-        function picks the cell with the fewest candidates.
+        The optimization is that this solver does not traverse all cells in
+        order (from 0 to 80 in a 9x9 puzzle, for example). Instead, it picks
+        the cell with the fewest remaining candidates, or the set and value
+        with the fewest possible positions, whichever is smaller.
         """
         if puzzle is None:
             puzzle = self.puzzle[:]
@@ -368,7 +394,7 @@ class Sudoku:
         while not self.is_complete(puzzle):
             i = self.fewest_candidates(puzzle)
             # fewest_candidates() skips solved cells
-            
+ 
             if len(puzzle[i]) == 1:
                 # all candidates but one have been eliminated; officially
                 # solve cell with insert()
@@ -379,6 +405,21 @@ class Sudoku:
                 return None
             if len(puzzle[i]) > 1:
                 # cell has more than one candidate
+
+                #search_set = []
+                # find set and value with fewest possible positions
+                #fpp_value, fpp_positions = self.fewest_possible_positions(puzzle)
+                #if len(fpp_positions) < len(puzzle[i]):
+                #    for position in fpp_positions:
+                #        search_set.append((fpp_value, position))
+                #else:
+                #    candidates = random.sample(puzzle[i], len(puzzle[i]))
+                #    for candidate in candidates:
+                #        search_set.append((candidate, i))
+
+                #branches = 0
+                #for candidate, position in candidates:
+                
                 candidates = random.sample(puzzle[i], len(puzzle[i]))
                 branches = 0
                 for candidate in candidates:
@@ -412,26 +453,7 @@ class Sudoku:
         # puzzle is complete; store it in solutions and score
         if puzzle not in self.solutions:
             self.solutions.append(puzzle)
-
-            # scoring step one: calculate B, branch-difficulty score
-            terms = [(self.branch_factors[i] - 1) ** 2
-                     for i in range(len(self.branch_factors))]
-            B = sum(terms)
-
-##            print("branch_factors: ", self.branch_factors)
-##            print("terms: ", terms)
-##            print("B = ", B)
-
-            # scoring step two: fetch number of empty cells in given puzzle
-            empty_cells = 0
-            for i in range(len(self.puzzle)):
-                if not isinstance(self.puzzle[i], int):
-                    empty_cells += 1
-
-##            print("# of empty cells = ", empty_cells)
-
-            # scoring step three: calculate puzzle difficulty score
-            self.difficulties.append(B * 100 + empty_cells)
+            self.score()
             
         return puzzle
 
@@ -476,69 +498,43 @@ class Sudoku:
         return False
 
 
-# puzzle from dlbeer; his score is 55, mine is 55 before set-oriented change
-values = [5,3,4,0,0,8,0,1,0,
-          0,0,0,0,0,2,0,9,0,
-          0,0,0,0,0,7,6,0,4,
-          0,0,0,5,0,0,1,0,0,
-          1,0,0,0,0,0,0,0,3,
-          0,0,9,0,0,1,0,0,0,
-          3,0,5,4,0,0,0,0,0,
-          0,8,0,2,0,0,0,0,0,
-          0,6,0,7,0,0,3,8,2]
+dlbeer_55 = [5,3,4,0,0,8,0,1,0,
+             0,0,0,0,0,2,0,9,0,
+             0,0,0,0,0,7,6,0,4,
+             0,0,0,5,0,0,1,0,0,
+             1,0,0,0,0,0,0,0,3,
+             0,0,9,0,0,1,0,0,0,
+             3,0,5,4,0,0,0,0,0,
+             0,8,0,2,0,0,0,0,0,
+             0,6,0,7,0,0,3,8,2]
 
-dlbeer_551 =
-         [3,7,0,0,0,9,0,0,6,
-          8,0,0,1,0,3,0,7,0,
-          0,0,0,0,0,0,0,0,8,
-          0,2,0,0,8,0,0,0,5,
-          1,8,7,0,0,0,6,4,2,
-          5,0,0,0,2,0,0,1,0,
-          7,0,0,0,0,0,0,0,0,
-          0,5,0,6,0,2,0,0,7,
-          2,0,0,3,0,0,0,6,1]
+dlbeer_551 = [3,7,0,0,0,9,0,0,6,
+              8,0,0,1,0,3,0,7,0,
+              0,0,0,0,0,0,0,0,8,
+              0,2,0,0,8,0,0,0,5,
+              1,8,7,0,0,0,6,4,2,
+              5,0,0,0,2,0,0,1,0,
+              7,0,0,0,0,0,0,0,0,
+              0,5,0,6,0,2,0,0,7,
+              2,0,0,3,0,0,0,6,1]
 
-##puzzle = Sudoku(puzzle=values)
-##print(puzzle)
-##print(puzzle.puzzle)
-##puzzle.solve_all()
-##print("number of solutions: ", len(puzzle.solutions))
-##for i in range(len(puzzle.solutions)):
-##    print(f"solution #{i+1}:")
-##    print(puzzle.print(puzzle=puzzle.solutions[i]))
-##    print(puzzle.difficulties[i])
-
-# running trials
-scores = []
+# testing fewest_positions()
 puzzle = Sudoku(label='dlbeer 551', puzzle=dlbeer_551)
 print(puzzle)
-for i in range(1000):
-    puzzle.solve_all()
-    scores.append(puzzle.difficulties[0])
-    puzzle.solutions = []
-    puzzle.difficulties = []
-    puzzle.branch_factors = []
+candidate, positions = puzzle.fewest_positions()
+print("Results of fewest_positions:")
+print(candidate, positions)
 
-print(f"average difficulty score = {np.mean(scores)}")
+# running trials
+##scores = []
+##puzzle = Sudoku(label='dlbeer 551', puzzle=dlbeer_551)
+##print(puzzle)
+##for i in range(1000):
+##    puzzle.solve_all()
+##    scores.append(puzzle.difficulties[0])
+##    puzzle.solutions = []
+##    puzzle.difficulties = []
+##    puzzle.branch_factors = []
+##
+##print(f"average difficulty score = {np.mean(scores)}")
     
-
-##values = [1, 0, 0, 0,
-##          0, 0, 1, 0,
-##          4, 0, 3, 0,
-##          0, 3, 0, 0]
-##
-##values = [1, 0, 4, 0,
-##          0, 0, 0, 3,
-##          0, 1, 3, 0,
-##          0, 0, 0, 0]
-##
-##small = Sudoku(size=4, puzzle=values)
-##print(small.print())
-##print(small.puzzle)
-##small.solve_all()
-##print("number of solutions: ", len(small.solutions))
-##for i in range(len(small.solutions)):
-##    print(f"solution #{i+1}:")
-##    print(small.print(puzzle=small.solutions[i]))
-##    print(small.difficulties[i])
-##
