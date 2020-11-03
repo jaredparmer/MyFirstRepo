@@ -212,9 +212,30 @@ class Sudoku:
         
         # find value with fewest candidate positions by column
         d = {}
-        for col in range(0, 1):
+        for col in range(0, self.size):
             for i in range(0, self.size**2, self.size):
                 j = i + col
+                if isinstance(puzzle[j], int):
+                    continue
+    
+                for candidate in puzzle[j]:
+                    if candidate in d:
+                        d[candidate].append(j)
+                    else:
+                        d[candidate] = [j]
+
+            for candidate in d:
+                if len(d[candidate]) < len(fpp_positions):
+                    fpp_candidate = candidate
+                    fpp_positions = d[candidate]
+                
+            d = {}
+            
+        # now by row
+        d = {}
+        for row in range(0, self.size**2, self.size):
+            for i in range(0, self.size):
+                j = i + row
                 if isinstance(puzzle[j], int):
                     continue
                 
@@ -224,23 +245,34 @@ class Sudoku:
                     else:
                         d[candidate] = [j]
 
-            print(f"after traversing column {col + 1}")
+            print(f"after traversing row {row + 1}")
             print(d)
 
-        for candidate in d:
-            if len(d[candidate]) < len(fpp_positions):
-                fpp_candidate = candidate
-                fpp_positions = d[candidate]
+            for candidate in d:
+                if len(d[candidate]) < len(fpp_positions):
+                    fpp_candidate = candidate
+                    fpp_positions = d[candidate]
 
-##        # now by row
-##        d = {}
+            print("best result found so far: ", fpp_candidate, fpp_positions)
+                
+            d = {}
+
+
+##            row = index // self.size
+##            col = index % self.size            
+##            box_r = row - (row % self.box_size)
+##            box_c = col - (col % self.box_size)
 ##
-##        for candidate, positions in d.items():
-##            if len(candidate[positions]) < len(fpp_positions):
-##                fpp_candidate = candidate
-##                fpp_positions = positions
-##
-##        # now by box
+##            # step one: remove value from candidates elsewhere in box
+##            # cell in top-left corner of relevant box
+##            top_left = box_r * int(math.sqrt(len(puzzle))) + box_c
+##            # now traverse all cells in box
+##            for i in range(0, self.size * self.box_size, self.size):
+##                for j in range(top_left + i, top_left + i + self.box_size):
+##                    if isinstance(puzzle[j], int):
+##                        continue
+            
+        # now by box
 ##        d = {}
 ##
 ##        for candidate, positions in d.items():
