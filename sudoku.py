@@ -245,47 +245,53 @@ class Sudoku:
                     else:
                         d[candidate] = [j]
 
-            print(f"after traversing row {row + 1}")
-            print(d)
-
+            for candidate in d:
+                if len(d[candidate]) < len(fpp_positions):
+                    fpp_candidate = candidate
+                    fpp_positions = d[candidate]
+   
+            d = {}
+            
+        # now by box
+        d = {}
+        i = 0
+        while i < self.size**2:
+            # traverse across boxes, where i is the index of the top-left cell
+            for j in range(0, self.size * self.box_size, self.size):
+                for k in range (0, self.box_size):
+                    # traverse within each box
+                    index = i + j + k
+                    if isinstance(puzzle[index], int):
+                        continue
+                    
+                    for candidate in puzzle[index]:
+                        if candidate in d:
+                            d[candidate].append(index)
+                        else:
+                            d[candidate] = [index]
+                            
+            # entire box checked; process and clear dictionary
             for candidate in d:
                 if len(d[candidate]) < len(fpp_positions):
                     fpp_candidate = candidate
                     fpp_positions = d[candidate]
 
-            print("best result found so far: ", fpp_candidate, fpp_positions)
-                
             d = {}
 
-
-##            row = index // self.size
-##            col = index % self.size            
-##            box_r = row - (row % self.box_size)
-##            box_c = col - (col % self.box_size)
-##
-##            # step one: remove value from candidates elsewhere in box
-##            # cell in top-left corner of relevant box
-##            top_left = box_r * int(math.sqrt(len(puzzle))) + box_c
-##            # now traverse all cells in box
-##            for i in range(0, self.size * self.box_size, self.size):
-##                for j in range(top_left + i, top_left + i + self.box_size):
-##                    if isinstance(puzzle[j], int):
-##                        continue
-            
-        # now by box
-##        d = {}
-##
-##        for candidate, positions in d.items():
-##            if len(candidate[positions]) < len(fpp_positions):
-##                fpp_candidate = candidate
-##                fpp_positions = positions        
+            # increment counter for next box
+            i += self.box_size
+            if i % self.size == 0:
+                """ we have finished the boxes in this row of the puzzle (e.g.,
+                boxes 1, 2, and 3 in a 9x9 Sudoku); so increment i further to
+                set it to the top-left cell of the next box (e.g., box 4) """
+                i += self.size * (self.box_size - 1)
         
         return fpp_candidate, fpp_positions
 
 
     def insert(self, value, index, puzzle=None):
         """ Inserts given value into given cell of Sudoku puzzle. Helper
-        function for __init__() and solve(). """
+        function for __init__() and solve_all(). """
         if puzzle is None:
             puzzle = self.puzzle
             
@@ -342,7 +348,7 @@ class Sudoku:
 
 
     def is_valid(self, candidate, index, puzzle=None):
-        """ helper function for solve(). Checks whether given value is
+        """ helper function for solve_all(). Checks whether given value is
         valid for cell at given index in puzzle.
         """
         if puzzle is None:
@@ -383,7 +389,7 @@ class Sudoku:
             if col == self.size - 1:
                 # hit right edge of puzzle; move to next line
                 res += '|\n'
-        res += '-------------------------\n'
+        res += '-------------------------'
         return res
 
 
@@ -399,13 +405,32 @@ class Sudoku:
             if not isinstance(self.puzzle[i], int):
                 empty_cells += 1
                 
-##      print("branch_factors: ", self.branch_factors)
-##      print("terms: ", terms)
-##      print("B = ", B)
-##      print("# of empty cells = ", empty_cells)
+        print("branch_factors: ", self.branch_factors)
+        print("terms: ", terms)
+        print("B = ", B)
+        print("# of empty cells = ", empty_cells)
 
         # step three: calculate and store puzzle difficulty score
         self.difficulties.append(B * 100 + empty_cells)
+
+
+    def solve(self, puzzle=None):
+        """ calls solve_all() to generate solution(s), score unique solution if
+        found, and print the resultant solution """
+        if puzzle is None:
+            puzzle = self.puzzle
+
+        self.solve_all(puzzle)
+        
+        if len(self.solutions) == 0:
+            print("No solution could be found.")
+        elif len(self.solutions) == 1:
+            print("Unique solution: ")
+            print(self.print(self.solutions[0]))
+            self.score()
+            print("Difficulty score: ", self.difficulties[0])
+        else:
+            print("Multiple possible solutions found.")
 
 
     # TODO: check to ensure given puzzle is valid; e.g., solve() currently
@@ -422,6 +447,11 @@ class Sudoku:
         """
         if puzzle is None:
             puzzle = self.puzzle[:]
+
+##        print("puzzle state: ")
+##        print(self.print(puzzle))
+##        print("self.puzzle state: ")
+##        print(self.print())
             
         while not self.is_complete(puzzle):
             i = self.fewest_candidates(puzzle)
@@ -438,54 +468,64 @@ class Sudoku:
             if len(puzzle[i]) > 1:
                 # cell has more than one candidate
 
-                #search_set = []
-                # find set and value with fewest possible positions
-                #fpp_value, fpp_positions = self.fewest_possible_positions(puzzle)
-                #if len(fpp_positions) < len(puzzle[i]):
-                #    for position in fpp_positions:
-                #        search_set.append((fpp_value, position))
-                #else:
-                #    candidates = random.sample(puzzle[i], len(puzzle[i]))
-                #    for candidate in candidates:
-                #        search_set.append((candidate, i))
+                print("self.puzzle state before fpp():")
+                print(self.print())
 
-                #branches = 0
-                #for candidate, position in candidates:
+                search_set = []
+                """ find value with fewest possible remaining positions in
+                some set (row, column, or box) """
+                fpp_value, fpp_positions = (
+                    self.fewest_positions(puzzle))
+
+                if (fpp_value, fpp_positions) == ('8', [3]):
+                    print("ping")
+                    print("self.puzzle state:")
+                    print(self.print())
                 
-                candidates = random.sample(puzzle[i], len(puzzle[i]))
+                if len(fpp_positions) < len(puzzle[i]):
+                    # value-set is more promising than current cell
+                    for position in fpp_positions:
+                        # build search_set to try value in each position in set
+                        search_set.append((fpp_value, position))
+                else:
+                    # current cell is more promising than value-set
+                    candidates = random.sample(puzzle[i], len(puzzle[i]))
+                    for candidate in candidates:
+                        # build search-set to try each candidate in cell
+                        search_set.append((candidate, i))
+
+                if search_set == [('8', 3)]:
+                    print("search set: ", search_set)
+                    print("self.puzzle state: ")
+                    print(self.print())
+
                 branches = 0
-                for candidate in candidates:
-                    if self.is_valid(candidate, i, puzzle):
-                        # candidate looks good; insert into copy for recursion
-                        puzzle_copy = puzzle[:]
+                for candidate, position in search_set:
+                    puzzle_copy = puzzle[:]
 
-##                        print(f"trying {candidate} in ({i // self.size + 1}, "
-##                              f"{i % self.size + 1})...")
-##                        print("all candidates for cell: ", candidates)
+                    self.insert(candidate, position, puzzle_copy)
 
-                        self.insert(candidate, i, puzzle_copy)
+                    # recurse on copy and mark branching
+                    branches += 1
+                    puzzle_copy = self.solve_all(puzzle_copy)
 
-                        ##print("state of puzzle:")
-                        ##print(self.print(puzzle=puzzle_copy))
-
-                        # recurse on copy and mark branching
-                        branches += 1
-                        puzzle_copy = self.solve_all(puzzle_copy)
-
-                        # check that we haven't found more than one solution
-                        if (len(self.solutions) == 2
-                            and puzzle_copy is not None):
-                            # we have, so start kick
-                            return puzzle_copy
+                    # check that we haven't found more than one solution
+                    if (len(self.solutions) == 2
+                        and puzzle_copy is not None):
+                        # we have, so start kick
+                        return puzzle_copy
                         
                 # search tree is exhausted from this node
                 self.branch_factors.append(branches)
+##                print("search_set, branches, and branch_factors:")
+##                print(search_set)
+##                print(branches)
+##                print(self.branch_factors)
                 return None
             
         # puzzle is complete; store it in solutions and score
         if puzzle not in self.solutions:
             self.solutions.append(puzzle)
-            self.score()
             
         return puzzle
 
@@ -540,6 +580,16 @@ dlbeer_55 = [5,3,4,0,0,8,0,1,0,
              0,8,0,2,0,0,0,0,0,
              0,6,0,7,0,0,3,8,2]
 
+dlbeer_253 = [0,7,0,3,0,0,0,4,0,
+              3,0,0,0,8,0,2,0,0,
+              2,0,1,4,0,7,0,0,0,
+              5,0,4,0,0,0,0,9,0,
+              0,2,0,0,0,0,0,5,0,
+              0,1,0,0,0,0,7,0,3,
+              0,0,0,9,0,6,3,0,2,
+              0,0,2,0,3,0,0,0,9,
+              0,6,0,0,0,2,0,8,0]
+
 dlbeer_551 = [3,7,0,0,0,9,0,0,6,
               8,0,0,1,0,3,0,7,0,
               0,0,0,0,0,0,0,0,8,
@@ -550,23 +600,46 @@ dlbeer_551 = [3,7,0,0,0,9,0,0,6,
               0,5,0,6,0,2,0,0,7,
               2,0,0,3,0,0,0,6,1]
 
-# testing fewest_positions()
+
+# single runs
+##puzzle = Sudoku(label='dlbeer 253', puzzle=dlbeer_253)
+##print(puzzle)
+##puzzle.solve()
+
 puzzle = Sudoku(label='dlbeer 551', puzzle=dlbeer_551)
 print(puzzle)
-candidate, positions = puzzle.fewest_positions()
-print("Results of fewest_positions:")
-print(candidate, positions)
+puzzle.solve()
 
-# running trials
-##scores = []
-##puzzle = Sudoku(label='dlbeer 551', puzzle=dlbeer_551)
-##print(puzzle)
-##for i in range(1000):
-##    puzzle.solve_all()
-##    scores.append(puzzle.difficulties[0])
-##    puzzle.solutions = []
-##    puzzle.difficulties = []
-##    puzzle.branch_factors = []
-##
-##print(f"average difficulty score = {np.mean(scores)}")
+while True:
+    if input("Run trials (y/n)? ") == 'n':
+        break
+
+    # running trials
+    scores = []
+    puzzle = Sudoku(label='dlbeer 551', puzzle=dlbeer_551)
+    print(puzzle)
+    for i in range(200):
+        puzzle.solve_all()
+        puzzle.score()
+        scores.append(puzzle.difficulties[0])
+        puzzle.solutions = []
+        puzzle.difficulties = []
+        puzzle.branch_factors = []
+
+    print("average difficulty score = ", np.mean(scores))
+    print("score standard deviation = ", np.std(scores))
+
+    scores = []
+    puzzle = Sudoku(label='dlbeer 253', puzzle=dlbeer_253)
+    print(puzzle)
+    for i in range(200):
+        puzzle.solve_all()
+        puzzle.score()
+        scores.append(puzzle.difficulties[0])
+        puzzle.solutions = []
+        puzzle.difficulties = []
+        puzzle.branch_factors = []
+
+    print("average difficulty score = ", np.mean(scores))
+    print("score standard deviation = ", np.std(scores))
     
