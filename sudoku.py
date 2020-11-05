@@ -414,13 +414,11 @@ class Sudoku:
         self.difficulties.append(B * 100 + empty_cells)
 
 
-    def solve(self, puzzle=None):
+    def solve(self):
         """ calls solve_all() to generate solution(s), score unique solution if
         found, and print the resultant solution """
-        if puzzle is None:
-            puzzle = self.puzzle
 
-        self.solve_all(puzzle)
+        self.solve_all()
         
         if len(self.solutions) == 0:
             print("No solution could be found.")
@@ -447,11 +445,6 @@ class Sudoku:
         """
         if puzzle is None:
             puzzle = self.puzzle[:]
-
-##        print("puzzle state: ")
-##        print(self.print(puzzle))
-##        print("self.puzzle state: ")
-##        print(self.print())
             
         while not self.is_complete(puzzle):
             i = self.fewest_candidates(puzzle)
@@ -468,19 +461,11 @@ class Sudoku:
             if len(puzzle[i]) > 1:
                 # cell has more than one candidate
 
-                print("self.puzzle state before fpp():")
-                print(self.print())
-
                 search_set = []
                 """ find value with fewest possible remaining positions in
                 some set (row, column, or box) """
                 fpp_value, fpp_positions = (
                     self.fewest_positions(puzzle))
-
-                if (fpp_value, fpp_positions) == ('8', [3]):
-                    print("ping")
-                    print("self.puzzle state:")
-                    print(self.print())
                 
                 if len(fpp_positions) < len(puzzle[i]):
                     # value-set is more promising than current cell
@@ -493,11 +478,6 @@ class Sudoku:
                     for candidate in candidates:
                         # build search-set to try each candidate in cell
                         search_set.append((candidate, i))
-
-                if search_set == [('8', 3)]:
-                    print("search set: ", search_set)
-                    print("self.puzzle state: ")
-                    print(self.print())
 
                 branches = 0
                 for candidate, position in search_set:
@@ -590,6 +570,16 @@ dlbeer_253 = [0,7,0,3,0,0,0,4,0,
               0,0,2,0,3,0,0,0,9,
               0,6,0,0,0,2,0,8,0]
 
+dlbeer_451 = [0,4,0,0,0,7,0,9,0,
+              0,9,1,0,8,0,0,0,0,
+              7,0,3,9,0,1,0,0,0,
+              0,1,0,0,6,4,2,0,0,
+              0,0,0,5,0,8,0,0,0,
+              0,0,5,7,1,0,0,6,0,
+              0,0,0,1,0,5,8,0,6,
+              0,0,0,0,4,0,9,1,0,
+              0,5,0,8,0,0,0,2,0]
+
 dlbeer_551 = [3,7,0,0,0,9,0,0,6,
               8,0,0,1,0,3,0,7,0,
               0,0,0,0,0,0,0,0,8,
@@ -600,46 +590,18 @@ dlbeer_551 = [3,7,0,0,0,9,0,0,6,
               0,5,0,6,0,2,0,0,7,
               2,0,0,3,0,0,0,6,1]
 
+dlbeer_953 = [0,0,3,0,0,0,0,0,0,
+              8,0,9,4,6,0,7,0,2,
+              2,0,0,0,1,8,6,0,0,
+              0,0,0,0,0,6,0,7,0,
+              0,0,8,0,0,0,4,0,0,
+              0,7,0,8,0,0,0,0,0,
+              0,0,2,9,4,0,0,0,5,
+              4,0,6,0,3,2,8,0,7,
+              0,0,0,0,0,0,2,0,0]
+
 
 # single runs
-##puzzle = Sudoku(label='dlbeer 253', puzzle=dlbeer_253)
-##print(puzzle)
-##puzzle.solve()
-
-puzzle = Sudoku(label='dlbeer 551', puzzle=dlbeer_551)
+puzzle = Sudoku(label='dlbeer_953', puzzle=dlbeer_953)
 print(puzzle)
 puzzle.solve()
-
-while True:
-    if input("Run trials (y/n)? ") == 'n':
-        break
-
-    # running trials
-    scores = []
-    puzzle = Sudoku(label='dlbeer 551', puzzle=dlbeer_551)
-    print(puzzle)
-    for i in range(200):
-        puzzle.solve_all()
-        puzzle.score()
-        scores.append(puzzle.difficulties[0])
-        puzzle.solutions = []
-        puzzle.difficulties = []
-        puzzle.branch_factors = []
-
-    print("average difficulty score = ", np.mean(scores))
-    print("score standard deviation = ", np.std(scores))
-
-    scores = []
-    puzzle = Sudoku(label='dlbeer 253', puzzle=dlbeer_253)
-    print(puzzle)
-    for i in range(200):
-        puzzle.solve_all()
-        puzzle.score()
-        scores.append(puzzle.difficulties[0])
-        puzzle.solutions = []
-        puzzle.difficulties = []
-        puzzle.branch_factors = []
-
-    print("average difficulty score = ", np.mean(scores))
-    print("score standard deviation = ", np.std(scores))
-    
