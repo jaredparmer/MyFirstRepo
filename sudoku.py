@@ -11,10 +11,11 @@ import numpy as np
         - solve_fast() and helper fns need puzzle as arg  DONE 01/10
     - enhance solve fn to count solutions                 DONE 15/10
     - write scoring function                              DONE 02/11
-    - set-oriented solve optimization                     IN PROGRESS 02/11
+    - set-oriented solve optimization                     DONE 05/11
+    - debug solve_all() (branching too much)
     - pickle puzzles
-    - removal algorithm - basic
-    - removal algorithm - multiple difficulties
+    - write generate() function                           IN PROGRESS 06/11
+        - write remove() helper fn                        IN PROGRESS 06/11
     - generalize turtle fns for puzzles not 9x9
     - generalize initialize() and make() for size
     - implement GUI
@@ -72,12 +73,12 @@ class Sudoku:
         Only a given puzzle with a unique solution is valid. """
         self.solutions = []
 
-        """ difficulty associated with corresponding solution given by:
+        """ difficulty of unique solution given by:
              difficulty = B * 100 + E
         where B is the sum (Bi - 1) ** 2 for every branching factor, and E is
         the number of empty cells in the given puzzle. This score is computed
-        in solve_all(). """
-        self.difficulties = []
+        in score() if and only if a single solution has been found. """
+        self.difficulty = np.NaN
         self.branch_factors = []
 
         if puzzle == []:
@@ -290,7 +291,8 @@ class Sudoku:
 
 
     def insert(self, value, index, puzzle=None):
-        """ Inserts given value into given cell of Sudoku puzzle. Helper
+        """ inserts given value into given cell of Sudoku puzzle, and removes
+        that value from the candidates list of all neighboring cells. Helper
         function for __init__() and solve_all(). """
         if puzzle is None:
             puzzle = self.puzzle
@@ -347,20 +349,6 @@ class Sudoku:
         return True
 
 
-    def is_valid(self, candidate, index, puzzle=None):
-        """ helper function for solve_all(). Checks whether given value is
-        valid for cell at given index in puzzle.
-        """
-        if puzzle is None:
-            puzzle = self.puzzle
-            
-        row = index // self.size
-        col = index % self.size
-        return (not self.used_in_row(row, candidate, puzzle) and
-                not self.used_in_col(col, candidate, puzzle) and
-                not self.used_in_box(row, col, candidate, puzzle))
-
-
     def print(self, puzzle=None):
         if puzzle is None:
             puzzle = self.puzzle
@@ -393,7 +381,31 @@ class Sudoku:
         return res
 
 
+    def remove(self, value, index, puzzle=None):
+        """ removes given value from given cell of Sudoku puzzle, and stores
+        all candidate values in that cell that are not already used in this
+        cell's row, column, or box. Helper function for generate(). """
+        if puzzle is None:
+            puzzle = self.puzzle
+
+        # step one: load all candidates into cell
+        puzzle[index] = self.candidates
+
+        # step two: remove candidates already used elsewhere
+        row = index // self.size
+        col = index % self.size
+        for candidate in puzzle[index]:
+            if (self.used_in_row(row, candidate, puzzle) or
+                self.used_in_col(col, candidate, puzzle) or
+                self.used_in_box(row, col, candidate, puzzle)):
+                puzzle[index] = puzzle[index].replace(candidate, '')
+
+
     def score(self):
+        if len(self.solutions) != 1:
+            # no unique solution found; self.difficulty remains set at NaN
+            return
+            
         # step one: calculate B, branch-difficulty score
         terms = [(self.branch_factors[i] - 1) ** 2
                  for i in range(len(self.branch_factors))]
@@ -405,33 +417,34 @@ class Sudoku:
             if not isinstance(self.puzzle[i], int):
                 empty_cells += 1
                 
-        print("branch_factors: ", self.branch_factors)
-        print("terms: ", terms)
-        print("B = ", B)
-        print("# of empty cells = ", empty_cells)
+##        print("branch_factors:", self.branch_factors)
+##        print("terms:", terms)
+##        print("B =", B)
+##        print("# of empty cells =", empty_cells)
 
         # step three: calculate and store puzzle difficulty score
-        self.difficulties.append(B * 100 + empty_cells)
+        self.difficulty = B * 100 + empty_cells
 
 
-    def solve(self):
-        """ calls solve_all() to generate solution(s), score unique solution if
-        found, and print the resultant solution """
+    def solve(self, report=True):
+        """ calls solve_all() to generate solution(s), scores unique solution if
+        found, and (optionally) prints the resultant solution """
 
         self.solve_all()
-        
-        if len(self.solutions) == 0:
-            print("No solution could be found.")
-        elif len(self.solutions) == 1:
-            print("Unique solution: ")
-            print(self.print(self.solutions[0]))
-            self.score()
-            print("Difficulty score: ", self.difficulties[0])
-        else:
-            print("Multiple possible solutions found.")
+        self.score()
+
+        if report:
+            if len(self.solutions) == 0:
+                print("No solution could be found.")
+            elif len(self.solutions) == 1:
+                print("Unique solution: ")
+                print(self.print(self.solutions[0]))
+                print("Difficulty score:", self.difficulty)
+            else:
+                print("Multiple possible solutions found.")
 
 
-    # TODO: check to ensure given puzzle is valid; e.g., solve() currently
+    # TODO: check to ensure given puzzle is valid; e.g., solve_all() currently
     # ignores the fact that the puzzle has two 1s in the top row
     def solve_all(self, puzzle=None):
         """ solver function that utilizes backtracking, randomization, and
@@ -448,7 +461,7 @@ class Sudoku:
             
         while not self.is_complete(puzzle):
             i = self.fewest_candidates(puzzle)
-            # fewest_candidates() skips solved cells
+            # fewest_candidates() skips solved cells                
  
             if len(puzzle[i]) == 1:
                 # all candidates but one have been eliminated; officially
@@ -480,6 +493,7 @@ class Sudoku:
                         search_set.append((candidate, i))
 
                 branches = 0
+
                 for candidate, position in search_set:
                     puzzle_copy = puzzle[:]
 
@@ -497,10 +511,6 @@ class Sudoku:
                         
                 # search tree is exhausted from this node
                 self.branch_factors.append(branches)
-##                print("search_set, branches, and branch_factors:")
-##                print(search_set)
-##                print(branches)
-##                print(self.branch_factors)
                 return None
             
         # puzzle is complete; store it in solutions and score
@@ -550,58 +560,73 @@ class Sudoku:
         return False
 
 
-dlbeer_55 = [5,3,4,0,0,8,0,1,0,
-             0,0,0,0,0,2,0,9,0,
-             0,0,0,0,0,7,6,0,4,
-             0,0,0,5,0,0,1,0,0,
-             1,0,0,0,0,0,0,0,3,
-             0,0,9,0,0,1,0,0,0,
-             3,0,5,4,0,0,0,0,0,
-             0,8,0,2,0,0,0,0,0,
-             0,6,0,7,0,0,3,8,2]
+def _comparisons():
+    dlbeer_55 = [5,3,4,0,0,8,0,1,0,
+                 0,0,0,0,0,2,0,9,0,
+                 0,0,0,0,0,7,6,0,4,
+                 0,0,0,5,0,0,1,0,0,
+                 1,0,0,0,0,0,0,0,3,
+                 0,0,9,0,0,1,0,0,0,
+                 3,0,5,4,0,0,0,0,0,
+                 0,8,0,2,0,0,0,0,0,
+                 0,6,0,7,0,0,3,8,2]
 
-dlbeer_253 = [0,7,0,3,0,0,0,4,0,
-              3,0,0,0,8,0,2,0,0,
-              2,0,1,4,0,7,0,0,0,
-              5,0,4,0,0,0,0,9,0,
-              0,2,0,0,0,0,0,5,0,
-              0,1,0,0,0,0,7,0,3,
-              0,0,0,9,0,6,3,0,2,
-              0,0,2,0,3,0,0,0,9,
-              0,6,0,0,0,2,0,8,0]
+    dlbeer_253 = [0,7,0,3,0,0,0,4,0,
+                  3,0,0,0,8,0,2,0,0,
+                  2,0,1,4,0,7,0,0,0,
+                  5,0,4,0,0,0,0,9,0,
+                  0,2,0,0,0,0,0,5,0,
+                  0,1,0,0,0,0,7,0,3,
+                  0,0,0,9,0,6,3,0,2,
+                  0,0,2,0,3,0,0,0,9,
+                  0,6,0,0,0,2,0,8,0]
 
-dlbeer_451 = [0,4,0,0,0,7,0,9,0,
-              0,9,1,0,8,0,0,0,0,
-              7,0,3,9,0,1,0,0,0,
-              0,1,0,0,6,4,2,0,0,
-              0,0,0,5,0,8,0,0,0,
-              0,0,5,7,1,0,0,6,0,
-              0,0,0,1,0,5,8,0,6,
-              0,0,0,0,4,0,9,1,0,
-              0,5,0,8,0,0,0,2,0]
+    dlbeer_451 = [0,4,0,0,0,7,0,9,0,
+                  0,9,1,0,8,0,0,0,0,
+                  7,0,3,9,0,1,0,0,0,
+                  0,1,0,0,6,4,2,0,0,
+                  0,0,0,5,0,8,0,0,0,
+                  0,0,5,7,1,0,0,6,0,
+                  0,0,0,1,0,5,8,0,6,
+                  0,0,0,0,4,0,9,1,0,
+                  0,5,0,8,0,0,0,2,0]
 
-dlbeer_551 = [3,7,0,0,0,9,0,0,6,
-              8,0,0,1,0,3,0,7,0,
-              0,0,0,0,0,0,0,0,8,
-              0,2,0,0,8,0,0,0,5,
-              1,8,7,0,0,0,6,4,2,
-              5,0,0,0,2,0,0,1,0,
-              7,0,0,0,0,0,0,0,0,
-              0,5,0,6,0,2,0,0,7,
-              2,0,0,3,0,0,0,6,1]
+    dlbeer_551 = [3,7,0,0,0,9,0,0,6,
+                  8,0,0,1,0,3,0,7,0,
+                  0,0,0,0,0,0,0,0,8,
+                  0,2,0,0,8,0,0,0,5,
+                  1,8,7,0,0,0,6,4,2,
+                  5,0,0,0,2,0,0,1,0,
+                  7,0,0,0,0,0,0,0,0,
+                  0,5,0,6,0,2,0,0,7,
+                  2,0,0,3,0,0,0,6,1]
 
-dlbeer_953 = [0,0,3,0,0,0,0,0,0,
-              8,0,9,4,6,0,7,0,2,
-              2,0,0,0,1,8,6,0,0,
-              0,0,0,0,0,6,0,7,0,
-              0,0,8,0,0,0,4,0,0,
-              0,7,0,8,0,0,0,0,0,
-              0,0,2,9,4,0,0,0,5,
-              4,0,6,0,3,2,8,0,7,
-              0,0,0,0,0,0,2,0,0]
+    dlbeer_953 = [0,0,3,0,0,0,0,0,0,
+                  8,0,9,4,6,0,7,0,2,
+                  2,0,0,0,1,8,6,0,0,
+                  0,0,0,0,0,6,0,7,0,
+                  0,0,8,0,0,0,4,0,0,
+                  0,7,0,8,0,0,0,0,0,
+                  0,0,2,9,4,0,0,0,5,
+                  4,0,6,0,3,2,8,0,7,
+                  0,0,0,0,0,0,2,0,0]
 
+    puzzle = Sudoku(label='dlbeer_551', puzzle=dlbeer_551)
+    print(puzzle)
+    puzzle.solve(report=False)
+    print("Difficulty: ", puzzle.difficulty)
 
-# single runs
-puzzle = Sudoku(label='dlbeer_953', puzzle=dlbeer_953)
-print(puzzle)
-puzzle.solve()
+    puzzle = Sudoku(label='dlbeer_253', puzzle=dlbeer_253)
+    print(puzzle)
+    puzzle.solve(report=False)
+    print("Difficulty: ", puzzle.difficulty)
+
+    puzzle = Sudoku(label='dlbeer_451', puzzle=dlbeer_451)
+    print(puzzle)
+    puzzle.solve(report=False)
+    print("Difficulty: ", puzzle.difficulty)
+
+    puzzle = Sudoku(label='dlbeer_953', puzzle=dlbeer_953)
+    print(puzzle)
+    puzzle.solve(report=False)
+    print("Difficulty: ", puzzle.difficulty)
