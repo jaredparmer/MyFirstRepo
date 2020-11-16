@@ -101,7 +101,8 @@ class Sudoku:
 
 
     def make(self):
-        """ fills the first three boxes and first column of a blank puzzle """
+        """ fills the first three boxes and first column of a blank grid, then
+        uses solve_all() to generate a final puzzle """
 
         # step zero: initialize puzzle with all candidates
         for i in range(self.size**2):
@@ -169,6 +170,22 @@ class Sudoku:
             values = random.sample(list(self.puzzle[i]), len(self.puzzle[i]))
             candidate = values.pop()
             self.insert(candidate, i)
+
+        # step five: generate puzzle with solve_all()
+        # start with the first solution solve_all() gives as base
+##        print("puzzle state before solve_all():")
+##        print(self.print())
+        self.solve_all()
+        self.puzzle = self.solutions[0]
+        self.difficulty = 0
+        self.solutions = []
+
+        def flip(p=0.5):
+    """ returns True with given probability p, False otherwise """
+    # random() from numpy returns a random number between 0 and 1
+    return np.random.random() < p
+
+        np.random.randint(0, self.size**2) # random integer [0, size**2)
         
 
     def __str__(self):
@@ -293,7 +310,7 @@ class Sudoku:
     def insert(self, value, index, puzzle=None):
         """ inserts given value into given cell of Sudoku puzzle, and removes
         that value from the candidates list of all neighboring cells. Helper
-        function for __init__() and solve_all(). """
+        function for __init__(), make(), and solve_all(). """
         if puzzle is None:
             puzzle = self.puzzle
             
@@ -384,7 +401,7 @@ class Sudoku:
     def remove(self, value, index, puzzle=None):
         """ removes given value from given cell of Sudoku puzzle, and stores
         all candidate values in that cell that are not already used in this
-        cell's row, column, or box. Helper function for generate(). """
+        cell's row, column, or box. Helper function for make(). """
         if puzzle is None:
             puzzle = self.puzzle
 
@@ -504,7 +521,7 @@ class Sudoku:
                     puzzle_copy = self.solve_all(puzzle_copy)
 
                     # check that we haven't found more than one solution
-                    if (len(self.solutions) == 2
+                    if (len(self.solutions) >= 2
                         and puzzle_copy is not None):
                         # we have, so start kick
                         return puzzle_copy
@@ -630,3 +647,7 @@ def _comparisons():
     print(puzzle)
     puzzle.solve(report=False)
     print("Difficulty: ", puzzle.difficulty)
+
+
+puzzle = Sudoku()
+print(puzzle.print())
