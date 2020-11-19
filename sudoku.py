@@ -14,8 +14,9 @@ import numpy as np
     - set-oriented solve optimization                     DONE 05/11
     - debug solve_all() (branching too much)
     - pickle puzzles
-    - write generate() function                           IN PROGRESS 06/11
-        - write remove() helper fn                        IN PROGRESS 06/11
+    - white generate() to generate puzzles                IN PROGRESS 06/11
+        - write remove() helper fn                        DONE 06/11
+    - enhance generate() for target and max difficulty
     - generalize turtle fns for puzzles not 9x9
     - generalize initialize() and make() for size
     - implement GUI
@@ -99,93 +100,8 @@ class Sudoku:
                     # caller provided value for cell
                     self.insert(str(puzzle[i]), i)
 
-
-    def make(self):
-        """ fills the first three boxes and first column of a blank grid, then
-        uses solve_all() to generate a final puzzle """
-
-        # step zero: initialize puzzle with all candidates
-        for i in range(self.size**2):
-            self.puzzle.append(self.candidates)
-
-        # step one: fill box 1
-        # traverse by row and col the cells within the first box
-        top_left_index = 0
-        row_index_delta = self.size
-        row_beyond_box_index = self.size * self.box_size
-        for i in range(top_left_index, row_beyond_box_index, row_index_delta):
-            # create random sequence of candidates for row
-            values = random.sample(list(self.puzzle[i]), len(self.puzzle[i]))        
-            for j in range(i, i + self.box_size):
-                # pull random value and assign to cell
-                candidate = values.pop()
-                self.insert(candidate, j)
-
-        # step two: fill box 2
-        # traverse by row and col the cells within the second box
-        top_left_index += self.box_size
-        row_beyond_box_index += self.box_size
-        for i in range(top_left_index, row_beyond_box_index, row_index_delta):
-            # create random sequence of candidates for row
-            values = random.sample(list(self.puzzle[i]), len(self.puzzle[i]))
-            for j in range(i, i + self.box_size):
-                row = j // self.size
-                if row < self.box_size - 1:
-                    """ we're not on last row, so only pick a value for the
-                    cell that won't make last row unsolvable. """
-                    brc = self.size * (self.box_size - 1) + self.box_size
-                    
-                    for v in values:
-                        """ temporarily remove v from candidates for cell in
-                        bottom-right corner of the current/second box """
-                        brc_wo_v = self.puzzle[brc].replace(v, '')
-                        if len(brc_wo_v) >= self.box_size:
-                            # bottom row of box will still be solvable
-                            candidate = v
-                            values.remove(v)
-                            break
-                else:
-                    # in last row of box; simply pick value and fill
-                    candidate = values.pop()
-
-                self.insert(candidate, j)
-
-        # step three: fill box 3
-        # traverse by row and col the cells within third box
-        top_left_index += self.box_size
-        row_beyond_box_index += self.box_size
-        for i in range(top_left_index, row_beyond_box_index, row_index_delta):
-            # create random sequence of candidates for row
-            values = random.sample(list(self.puzzle[i]), len(self.puzzle[i]))
-            for j in range(i, i + self.box_size):
-                candidate = values.pop()
-                self.insert(candidate, j)
-
-        # step four: fill column 1
-        # traverse first col of entire puzzle, starting below first box
-        top_left_index = self.size * self.box_size
-        row_beyond_puzzle_index = self.size**2
-        for i in range(top_left_index, row_beyond_puzzle_index,
-                       row_index_delta):
-            values = random.sample(list(self.puzzle[i]), len(self.puzzle[i]))
-            candidate = values.pop()
-            self.insert(candidate, i)
-
-        # step five: generate puzzle with solve_all()
-        # start with the first solution solve_all() gives as base
-##        print("puzzle state before solve_all():")
-##        print(self.print())
-        self.solve_all()
-        self.puzzle = self.solutions[0]
-        self.difficulty = 0
-        self.solutions = []
-
-        def flip(p=0.5):
-    """ returns True with given probability p, False otherwise """
-    # random() from numpy returns a random number between 0 and 1
-    return np.random.random() < p
-
-        np.random.randint(0, self.size**2) # random integer [0, size**2)
+            """ step three: store solution and score puzzle """
+            self.solve(report=False)
         
 
     def __str__(self):
@@ -307,10 +223,72 @@ class Sudoku:
         return fpp_candidate, fpp_positions
 
 
+    def generate(self, steps=20, walks=200):
+        """ 
+        """
+
+        # start with the first solution solve() gives as base
+        print("puzzle state before solve():")
+        print(self)
+        self.solve(report=False)
+        best = self.solutions[0]
+        score = 0
+
+        print("best found so far: ", self.print(puzzle=best))
+        print("best score so far: ", score)
+
+        # make a copy of the best-so-far puzzle, where we'll start
+        puzzle = best[:]
+
+        # generate populations for later sampling; these are lists of indices
+        unsolved_cells = []
+        solved_cells = []
+        for i in range(len(self.puzzle)):
+            if isinstance(self.puzzle[i], int):
+                solved_cells.append(self.puzzle.index(self.puzzle[i], i))
+            else:
+                unsolved_cells.append(self.puzzle.index(self.puzzle[i], i))
+
+        print("unsolved cells: ")
+        print(unsolved_cells)
+
+        print("solved cells: ")
+        print(solved_cells)
+
+        for i in range(walks):
+            # take given number of walks
+            for j in range(steps):
+                """ take given number of steps per walk. A 'step' is adding or
+                reming two clues, where addition or removal is chosen by coin
+                flip. """
+
+                if np.random.random() < 0.5:
+                    # this step is an addition of clues
+                    # pick two cells from unsolved cells
+                    continue
+                else:
+                    # this step is a removal of clues
+                    # pick two cells from solved calls
+                    continue
+                    
+##
+##        def flip(p=0.5):
+##    """ returns True with given probability p, False otherwise """
+##    # random() from numpy returns a random number between 0 and 1
+##    return np.random.random() < p
+##
+##        np.random.randint(0, self.size**2) # random integer [0, size**2)
+
+
+        # final step: store best puzzle, store its solution and difficulty
+##        self.puzzle = best
+##        self.solve(report=False)
+
+
     def insert(self, value, index, puzzle=None):
         """ inserts given value into given cell of Sudoku puzzle, and removes
         that value from the candidates list of all neighboring cells. Helper
-        function for __init__(), make(), and solve_all(). """
+        function for __init__(), make(), generate(), and solve_all(). """
         if puzzle is None:
             puzzle = self.puzzle
             
@@ -366,6 +344,81 @@ class Sudoku:
         return True
 
 
+    def make(self):
+        """ fills the first three boxes and first column of a blank grid, then
+        uses generate() to generate a final puzzle """
+
+        # step zero: initialize puzzle with all candidates
+        for i in range(self.size**2):
+            self.puzzle.append(self.candidates)
+
+        # step one: fill box 1
+        # traverse by row and col the cells within the first box
+        top_left_index = 0
+        row_index_delta = self.size
+        row_beyond_box_index = self.size * self.box_size
+        for i in range(top_left_index, row_beyond_box_index, row_index_delta):
+            # create random sequence of candidates for row
+            values = random.sample(list(self.puzzle[i]), len(self.puzzle[i]))        
+            for j in range(i, i + self.box_size):
+                # pull random value and assign to cell
+                candidate = values.pop()
+                self.insert(candidate, j)
+
+        # step two: fill box 2
+        # traverse by row and col the cells within the second box
+        top_left_index += self.box_size
+        row_beyond_box_index += self.box_size
+        for i in range(top_left_index, row_beyond_box_index, row_index_delta):
+            # create random sequence of candidates for row
+            values = random.sample(list(self.puzzle[i]), len(self.puzzle[i]))
+            for j in range(i, i + self.box_size):
+                row = j // self.size
+                if row < self.box_size - 1:
+                    """ we're not on last row, so only pick a value for the
+                    cell that won't make last row unsolvable. """
+                    brc = self.size * (self.box_size - 1) + self.box_size
+                    
+                    for v in values:
+                        """ temporarily remove v from candidates for cell in
+                        bottom-right corner of the current/second box """
+                        brc_wo_v = self.puzzle[brc].replace(v, '')
+                        if len(brc_wo_v) >= self.box_size:
+                            # bottom row of box will still be solvable
+                            candidate = v
+                            values.remove(v)
+                            break
+                else:
+                    # in last row of box; simply pick value and fill
+                    candidate = values.pop()
+
+                self.insert(candidate, j)
+
+        # step three: fill box 3
+        # traverse by row and col the cells within third box
+        top_left_index += self.box_size
+        row_beyond_box_index += self.box_size
+        for i in range(top_left_index, row_beyond_box_index, row_index_delta):
+            # create random sequence of candidates for row
+            values = random.sample(list(self.puzzle[i]), len(self.puzzle[i]))
+            for j in range(i, i + self.box_size):
+                candidate = values.pop()
+                self.insert(candidate, j)
+
+        # step four: fill column 1
+        # traverse first col of entire puzzle, starting below first box
+        top_left_index = self.size * self.box_size
+        row_beyond_puzzle_index = self.size**2
+        for i in range(top_left_index, row_beyond_puzzle_index,
+                       row_index_delta):
+            values = random.sample(list(self.puzzle[i]), len(self.puzzle[i]))
+            candidate = values.pop()
+            self.insert(candidate, i)
+
+        # step five: generate puzzle
+        self.generate()
+
+
     def print(self, puzzle=None):
         if puzzle is None:
             puzzle = self.puzzle
@@ -401,7 +454,7 @@ class Sudoku:
     def remove(self, value, index, puzzle=None):
         """ removes given value from given cell of Sudoku puzzle, and stores
         all candidate values in that cell that are not already used in this
-        cell's row, column, or box. Helper function for make(). """
+        cell's row, column, or box. Helper function for generate(). """
         if puzzle is None:
             puzzle = self.puzzle
 
@@ -444,8 +497,12 @@ class Sudoku:
 
 
     def solve(self, report=True):
-        """ calls solve_all() to generate solution(s), scores unique solution if
-        found, and (optionally) prints the resultant solution """
+        """ calls solve_all() to generate solution(s), scores unique solution
+        if found, and (optionally) prints the resultant solution """
+
+        # first, clear values in solutions list and difficulty score
+        self.solutions = []
+        self.difficulty = np.NaN
 
         self.solve_all()
         self.score()
@@ -650,4 +707,3 @@ def _comparisons():
 
 
 puzzle = Sudoku()
-print(puzzle.print())
