@@ -223,99 +223,6 @@ class Sudoku:
         return fpp_candidate, fpp_positions
 
 
-    def generate(self, steps=3, walks=3):
-        """ 
-        """
-
-        # start with the first solution solve() gives as best found so far
-        print("puzzle state before solve():")
-        print(self)
-        self.solve(report=False)
-        puzzles_found = [(0, self.solutions[0])]
-
-        print("best puzzle found so far: ", puzzles_found[0][1])
-        print("best score so far: ", puzzles_found[0][0])
-
-        # make a copy of the best-so-far puzzle, where we'll start
-        puzzle = self.solutions[0][:]
-
-        # generate populations for later sampling; these are lists of indices
-        unsolved_cells = []
-        solved_cells = []
-        for i in range(len(puzzle)):
-            if isinstance(puzzle[i], int):
-                solved_cells.append(puzzle.index(puzzle[i], i))
-            else:
-                unsolved_cells.append(puzzle.index(puzzle[i], i))
-
-        print("unsolved cells: ")
-        print(unsolved_cells)
-
-        print("solved cells: ")
-        print(solved_cells)
-
-        for i in range(walks):
-            # take given number of walks
-            for j in range(steps):
-                """ take given number of steps per walk. A 'step' is adding or
-                removing two clues, where addition or removal is chosen
-                randomly but proportional to the options there are. e.g., if
-                the puzzle is entirely complete, it will choose to remove with
-                certainty; if it is almost complete, it will choose to remove
-                with near-certainty, etc. """
-                p = 1 - len(unsolved_cells)/len(puzzle)
-
-                print(f"step {j} of walk {i}")
-                print(f"p = 1 - {len(unsolved_cells)}/{len(puzzle)} = {p}")
-                
-                if np.random.random() < p:
-                    # this step is a removal of clues
-                    # pick two cells from solved calls
-                    positions = (
-                        np.random.choice(solved_cells, 2, replace=False))
-                    print("removing from: ", positions)
-                    for index in positions:
-                        self.remove(index, puzzle)
-                        unsolved_cells.append(index)
-                        solved_cells.remove(index)
-                else:
-                    # this step is an addition of clues
-                    # pick two cells from unsolved cells
-                    positions = (
-                        np.random.choice(unsolved_cells, 2, replace=False))
-                    print("adding to: ", positions)
-                    for index in positions:
-                        value = np.random.choice(list(puzzle[index]))
-                        self.insert(value, index, puzzle)
-                        solved_cells.append(index)
-                        unsolved_cells.remove(index)
-
-                """ assess puzzle generated after this step. If it is uniquely
-                solvable, keep it and its difficulty score; toss it out
-                otherwise. """
-                self.solve(puzzle)
-                if self.difficulty is not np.NaN:
-                    # puzzle generated after this step is valid; store it
-                    puzzles_found.append((self.difficulty, puzzle))
-
-            """ walk i complete; compare valid puzzles found at each step in
-            walk i against best_puzzle and store the best of all as the new
-            best_puzzle for the next walk. """
-            
-            print(f"walk {i} complete")
-            print("valid puzzles found:")
-            print(puzzles_found)
-
-        print("all walks complete")
-        print("state of puzzle:")
-        print(self.print(puzzle))
-
-                    
-        # final step: store best puzzle, store its solution and difficulty
-##        self.puzzle = best_puzzle
-##        self.solve(report=False)
-
-
     def insert(self, value, index, puzzle=None):
         """ inserts given value into given cell of Sudoku puzzle, and removes
         that value from the candidates list of all neighboring cells. Helper
@@ -506,7 +413,10 @@ class Sudoku:
                 puzzle[index] = puzzle[index].replace(candidate, '')
 
 
-    def score(self):
+    def score(self, puzzle=None):
+        if puzzle is None:
+            puzzle = self.puzzle
+        
         if len(self.solutions) == 1:
             # unique solution found; commence scoring
             # step one: calculate B, branch-difficulty score
@@ -516,8 +426,8 @@ class Sudoku:
 
             # step two: fetch number of empty cells in given puzzle
             empty_cells = 0
-            for i in range(len(self.puzzle)):
-                if not isinstance(self.puzzle[i], int):
+            for i in range(len(puzzle)):
+                if not isinstance(puzzle[i], int):
                     empty_cells += 1
                     
     ##        print("branch_factors:", self.branch_factors)
@@ -534,15 +444,16 @@ class Sudoku:
         return self.difficulty
 
 
-    def solve(self, report=True):
+    def solve(self, puzzle=None, report=True):
         """ calls solve_all() to generate solution(s), scores unique solution
         if found, and (optionally) prints the resultant solution """
 
         # first, clear values in solutions list
         self.solutions = []
+        self.branch_factors = []
 
-        self.solve_all()
-        self.score()
+        self.solve_all(puzzle)
+        self.score(puzzle)
 
         if report:
             if len(self.solutions) == 0:
@@ -741,6 +652,121 @@ def _comparisons():
     print(puzzle)
     puzzle.solve(report=False)
     print("Difficulty: ", puzzle.difficulty)
+
+
+def generate(base_puzzle=Sudoku(), steps=10, walks=1):
+    """ 
+    """
+
+    # start with the first solution solve() gives as best found so far
+    print("puzzle state before solve():")
+    print(self)
+    self.solve(report=False)
+    puzzles_found = [(0, self.solutions[0])]
+
+    print("best puzzle found so far: ", puzzles_found[0][1])
+    print("best score so far: ", puzzles_found[0][0])
+
+    # make a copy of the best-so-far puzzle, where we'll start
+    puzzle = self.solutions[0][:]
+
+    # generate populations for later sampling; these are lists of indices
+    unsolved_cells = []
+    solved_cells = []
+    for i in range(len(puzzle)):
+        if isinstance(puzzle[i], int):
+            solved_cells.append(puzzle.index(puzzle[i], i))
+        else:
+            unsolved_cells.append(puzzle.index(puzzle[i], i))
+
+    print("unsolved cells initial: ")
+    print(unsolved_cells)
+
+    print("solved cells initial: ")
+    print(solved_cells)
+
+    for i in range(walks):
+        # take given number of walks
+        for j in range(steps):
+            """ take given number of steps per walk. A 'step' is adding or
+            removing two clues, where addition or removal is chosen
+            randomly but proportional to the options there are. e.g., if
+            the puzzle is entirely complete, it will choose to remove with
+            certainty; if it is almost complete, it will choose to remove
+            with near-certainty, etc. """
+            p = 1 - len(unsolved_cells)/len(puzzle)
+            
+            if np.random.random() < p:
+                # this step is a removal of clues
+                # pick two cells from solved calls
+                positions = (
+                    np.random.choice(solved_cells, 2, replace=False))
+                for index in positions:
+                    self.remove(index, puzzle)
+                    unsolved_cells.append(index)
+                    solved_cells.remove(index)
+            else:
+                # this step is an addition of clues
+                # pick two cells from unsolved cells
+                positions = (
+                    np.random.choice(unsolved_cells, 2, replace=False))
+                for index in positions:
+                    value = np.random.choice(list(puzzle[index]))
+                    self.insert(value, index, puzzle)
+                    solved_cells.append(index)
+                    unsolved_cells.remove(index)
+
+            # add puzzle so far to list, for later comparison
+            puzzles_found.append((np.NaN, puzzle[:]))
+
+        print(f"walk {i} complete")
+        print("puzzles found without scoring and tossing invalids:")
+        print(puzzles_found)
+        print("length: ", len(puzzles_found))
+            
+        # walk i complete
+        # check puzzles found so far and toss out invalid ones
+        for score, puzz in puzzles_found:
+            print("puzzle solved and scored:")
+            puzz_copy = puzz[:]
+            print("puzzle pre-solve:")
+            print(self.print(puzz_copy))
+            self.solve(puzz_copy, report=False)
+            score_copy = self.difficulty
+            print("puzzle post-solve:")
+            print(self.print(puzz_copy))
+            print("score: ", score_copy)
+##                if score_copy is np.NaN:
+##                    # puzz has no unique solution; toss it
+##                    puzzles_found.remove((score, puzz))
+##                else:
+##                    # puzz has a unique solution; update its score
+##                    puzzles_found.remove((score, puzz))
+##                    puzzles_found.append((score_copy, puzz))
+                
+
+##            print("puzzles found after tossing invalids:")
+##            print(puzzles_found)
+##            print("length: ", len(puzzles_found))
+        
+
+        """ remove everything from puzzles_found """
+
+##                self.solve(puzzle, report=False)
+##                if self.difficulty is not np.NaN:
+##                    # puzzle generated after this step is valid; store it
+##                    puzzles_found.append((self.difficulty, puzzle))
+        
+
+
+    print("all walks complete")
+    print("state of puzzle:")
+    print(self.print(puzzle))
+
+                
+    # final step: store best puzzle, store its solution and difficulty
+##        self.puzzle = best_puzzle
+##        self.solve(report=False)
 
 
 puzzle = Sudoku()
