@@ -223,7 +223,7 @@ class Sudoku:
         return fpp_candidate, fpp_positions
 
 
-    def generate(self, steps=20, walks=200):
+    def generate(self, steps=3, walks=3):
         """ 
         """
 
@@ -243,11 +243,11 @@ class Sudoku:
         # generate populations for later sampling; these are lists of indices
         unsolved_cells = []
         solved_cells = []
-        for i in range(len(self.puzzle)):
-            if isinstance(self.puzzle[i], int):
-                solved_cells.append(self.puzzle.index(self.puzzle[i], i))
+        for i in range(len(puzzle)):
+            if isinstance(puzzle[i], int):
+                solved_cells.append(puzzle.index(puzzle[i], i))
             else:
-                unsolved_cells.append(self.puzzle.index(self.puzzle[i], i))
+                unsolved_cells.append(puzzle.index(puzzle[i], i))
 
         print("unsolved cells: ")
         print(unsolved_cells)
@@ -260,16 +260,45 @@ class Sudoku:
             for j in range(steps):
                 """ take given number of steps per walk. A 'step' is adding or
                 reming two clues, where addition or removal is chosen by coin
-                flip. """
+                flip, unless the number of unsolved cells is too few to allow
+                for addition. """
 
-                if np.random.random() < 0.5:
-                    # this step is an addition of clues
-                    # pick two cells from unsolved cells
-                    continue
-                else:
+                """ TODO: think about whether p should stay 0.5, or should be
+                p = len(unsolved_cells)/len(solved_cells). This would make the
+                step chosen randomly but proportional to the options there are.
+                """
+
+                if len(unsolved_cells) < 2 or np.random.random() < 0.5:
                     # this step is a removal of clues
                     # pick two cells from solved calls
-                    continue
+                    positions = (
+                        np.random.choice(solved_cells, 2, replace=False))
+                    print("removing from: ", positions)
+                    for index in positions:
+                        self.remove(index, puzzle)
+                        unsolved_cells.append(index)
+                        solved_cells.remove(index)
+                else:
+                    # this step is an addition of clues
+                    # pick two cells from unsolved cells
+                    positions = (
+                        np.random.choice(unsolved_cells, 2, replace=False))
+                    print("adding to: ", positions)
+                    for index in positions:
+                        value = np.random.choice(list(puzzle[index]))
+                        self.insert(value, index, puzzle)
+                        solved_cells.append(index)
+                        unsolved_cells.remove(index)
+
+
+            print(f"walk {i} complete")
+            print("unsolved_cells: ", unsolved_cells)
+            print("solved_cells: ", solved_cells)
+
+        print("all walks complete")
+        print("state of puzzle:")
+        print(self.print(puzzle))
+
                     
 ##
 ##        def flip(p=0.5):
@@ -451,12 +480,16 @@ class Sudoku:
         return res
 
 
-    def remove(self, value, index, puzzle=None):
-        """ removes given value from given cell of Sudoku puzzle, and stores
+    def remove(self, index, puzzle=None):
+        """ removes value from given cell (index) of Sudoku puzzle, and stores
         all candidate values in that cell that are not already used in this
         cell's row, column, or box. Helper function for generate(). """
         if puzzle is None:
             puzzle = self.puzzle
+
+        if not isinstance(puzzle[index], int):
+            # cell is not solved; nothing to remove
+            return
 
         # step one: load all candidates into cell
         puzzle[index] = self.candidates
