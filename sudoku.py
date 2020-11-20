@@ -227,18 +227,17 @@ class Sudoku:
         """ 
         """
 
-        # start with the first solution solve() gives as base
+        # start with the first solution solve() gives as best found so far
         print("puzzle state before solve():")
         print(self)
         self.solve(report=False)
-        best = self.solutions[0]
-        score = 0
+        puzzles_found = [(0, self.solutions[0])]
 
-        print("best found so far: ", self.print(puzzle=best))
-        print("best score so far: ", score)
+        print("best puzzle found so far: ", puzzles_found[0][1])
+        print("best score so far: ", puzzles_found[0][0])
 
         # make a copy of the best-so-far puzzle, where we'll start
-        puzzle = best[:]
+        puzzle = self.solutions[0][:]
 
         # generate populations for later sampling; these are lists of indices
         unsolved_cells = []
@@ -259,16 +258,17 @@ class Sudoku:
             # take given number of walks
             for j in range(steps):
                 """ take given number of steps per walk. A 'step' is adding or
-                reming two clues, where addition or removal is chosen by coin
-                flip, unless the number of unsolved cells is too few to allow
-                for addition. """
+                removing two clues, where addition or removal is chosen
+                randomly but proportional to the options there are. e.g., if
+                the puzzle is entirely complete, it will choose to remove with
+                certainty; if it is almost complete, it will choose to remove
+                with near-certainty, etc. """
+                p = 1 - len(unsolved_cells)/len(puzzle)
 
-                """ TODO: think about whether p should stay 0.5, or should be
-                p = len(unsolved_cells)/len(solved_cells). This would make the
-                step chosen randomly but proportional to the options there are.
-                """
-
-                if len(unsolved_cells) < 2 or np.random.random() < 0.5:
+                print(f"step {j} of walk {i}")
+                print(f"p = 1 - {len(unsolved_cells)}/{len(puzzle)} = {p}")
+                
+                if np.random.random() < p:
                     # this step is a removal of clues
                     # pick two cells from solved calls
                     positions = (
@@ -290,27 +290,29 @@ class Sudoku:
                         solved_cells.append(index)
                         unsolved_cells.remove(index)
 
+                """ assess puzzle generated after this step. If it is uniquely
+                solvable, keep it and its difficulty score; toss it out
+                otherwise. """
+                self.solve(puzzle)
+                if self.difficulty is not np.NaN:
+                    # puzzle generated after this step is valid; store it
+                    puzzles_found.append((self.difficulty, puzzle))
 
+            """ walk i complete; compare valid puzzles found at each step in
+            walk i against best_puzzle and store the best of all as the new
+            best_puzzle for the next walk. """
+            
             print(f"walk {i} complete")
-            print("unsolved_cells: ", unsolved_cells)
-            print("solved_cells: ", solved_cells)
+            print("valid puzzles found:")
+            print(puzzles_found)
 
         print("all walks complete")
         print("state of puzzle:")
         print(self.print(puzzle))
 
                     
-##
-##        def flip(p=0.5):
-##    """ returns True with given probability p, False otherwise """
-##    # random() from numpy returns a random number between 0 and 1
-##    return np.random.random() < p
-##
-##        np.random.randint(0, self.size**2) # random integer [0, size**2)
-
-
         # final step: store best puzzle, store its solution and difficulty
-##        self.puzzle = best
+##        self.puzzle = best_puzzle
 ##        self.solve(report=False)
 
 
@@ -505,37 +507,39 @@ class Sudoku:
 
 
     def score(self):
-        if len(self.solutions) != 1:
-            # no unique solution found; self.difficulty remains set at NaN
-            return
+        if len(self.solutions) == 1:
+            # unique solution found; commence scoring
+            # step one: calculate B, branch-difficulty score
+            terms = [(self.branch_factors[i] - 1) ** 2
+                     for i in range(len(self.branch_factors))]
+            B = sum(terms)
+
+            # step two: fetch number of empty cells in given puzzle
+            empty_cells = 0
+            for i in range(len(self.puzzle)):
+                if not isinstance(self.puzzle[i], int):
+                    empty_cells += 1
+                    
+    ##        print("branch_factors:", self.branch_factors)
+    ##        print("terms:", terms)
+    ##        print("B =", B)
+    ##        print("# of empty cells =", empty_cells)
+
+            # step three: calculate and store puzzle difficulty score
+            self.difficulty = B * 100 + empty_cells
+        else:
+            # no unique solution found
+            self.difficulty = np.NaN
             
-        # step one: calculate B, branch-difficulty score
-        terms = [(self.branch_factors[i] - 1) ** 2
-                 for i in range(len(self.branch_factors))]
-        B = sum(terms)
-
-        # step two: fetch number of empty cells in given puzzle
-        empty_cells = 0
-        for i in range(len(self.puzzle)):
-            if not isinstance(self.puzzle[i], int):
-                empty_cells += 1
-                
-##        print("branch_factors:", self.branch_factors)
-##        print("terms:", terms)
-##        print("B =", B)
-##        print("# of empty cells =", empty_cells)
-
-        # step three: calculate and store puzzle difficulty score
-        self.difficulty = B * 100 + empty_cells
+        return self.difficulty
 
 
     def solve(self, report=True):
         """ calls solve_all() to generate solution(s), scores unique solution
         if found, and (optionally) prints the resultant solution """
 
-        # first, clear values in solutions list and difficulty score
+        # first, clear values in solutions list
         self.solutions = []
-        self.difficulty = np.NaN
 
         self.solve_all()
         self.score()
